@@ -38,3 +38,66 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/pages/building-your-application/deploying) for more details.
+
+```
+job-matcher
+├─ eslint.config.mjs
+├─ next.config.ts
+├─ package-lock.json
+├─ package.json
+├─ postcss.config.mjs
+├─ public
+│  ├─ favicon.ico
+│  ├─ file.svg
+│  ├─ globe.svg
+│  ├─ next.svg
+│  ├─ vercel.svg
+│  └─ window.svg
+├─ README.md
+├─ src
+│  ├─ components
+│  │  ├─ AIChat.tsx
+│  │  ├─ AuthForm.tsx
+│  │  ├─ CustomAuth.tsx
+│  │  ├─ CVAnalysis.tsx
+│  │  └─ Dashboard
+│  │     ├─ CVSection.tsx
+│  │     ├─ Header.tsx
+│  │     ├─ LoadingSpinner.tsx
+│  │     ├─ QuickStats.tsx
+│  │     ├─ RecentActivity.tsx
+│  │     └─ UserProfile.tsx
+│  ├─ lib
+│  │  ├─ cv-text-extractor.ts
+│  │  ├─ google-genai.ts
+│  │  ├─ pdfExtractor.ts
+│  │  └─ supabaseClient.ts
+│  ├─ pages
+│  │  ├─ ai-demo.tsx
+│  │  ├─ api
+│  │  │  ├─ analyze-cv.ts
+│  │  │  ├─ auth
+│  │  │  │  ├─ login.ts
+│  │  │  │  ├─ logout.ts
+│  │  │  │  ├─ signup.ts
+│  │  │  │  └─ user.ts
+│  │  │  ├─ generate.ts
+│  │  │  ├─ hello.ts
+│  │  │  └─ protected
+│  │  │     └─ profile.ts
+│  │  ├─ auth
+│  │  │  └─ callback.tsx
+│  │  ├─ dashboard.tsx
+│  │  ├─ index.tsx
+│  │  ├─ login.tsx
+│  │  ├─ _app.tsx
+│  │  └─ _document.tsx
+│  ├─ styles
+│  │  └─ globals.css
+│  └─ types
+│     ├─ cv-analysis.ts
+│     ├─ google-genai.d.ts
+│     └─ supabase.ts
+└─ tsconfig.json
+
+```
