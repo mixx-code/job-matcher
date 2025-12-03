@@ -1,8 +1,66 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import * as pdfjsLib from 'pdfjs-dist';
 
-// Setup pdfjs worker
-pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+import { PDFParse } from "pdf-parse";
+
+interface UserCV {
+    user_id: string;
+    file_name: string;
+    file_url: string;
+    file_size: number;
+    file_type: string;
+    storage_path: string;
+    created_at: string;
+    updated_at: string;
+    extracted_text: string | null;
+    extraction_metadata: any | null;
+}
+
+
+async function parseCVFromUrl(fileUrl: string, ext: string) {
+    if (ext === ".pdf") {
+        // Download file dari URL
+        const response = await fetch(fileUrl);
+        if (!response.ok) {
+            throw new Error(`Failed to download file: ${response.statusText}`);
+        }
+
+        const arrayBuffer = await response.arrayBuffer();
+        const buffer = Buffer.from(arrayBuffer);
+
+        // Parse PDF dengan options untuk membaca semua halaman
+        const parser = new PDFParse({
+            data: buffer,
+            max: 0, // No limit on pages (0 = all pages)
+            pagerender: async (pageData: any) => {
+                // Custom renderer untuk mendapatkan semua teks
+                const renderOptions = {
+                    normalizeWhitespace: false,
+                    disableCombineTextItems: false
+                };
+                return pageData.getTextContent(renderOptions)
+                    .then((textContent: any) => {
+                        let text = '';
+                        for (let item of textContent.items) {
+                            text += item.str + ' ';
+                        }
+                        return text;
+                    });
+            }
+        });
+
+        const result = await parser.getText();
+        console.log(`PDF parse result:`, {
+            hasText: !!result.text,
+            textLength: result.text?.length || 0,
+            numpages: result.numpages,
+            info: result.info
+        });
+
+        return result.text || '';
+    }
+
+    throw new Error("Unsupported file format. Only PDF is supported.");
+}
 
 export default async function handler(
     req: NextApiRequest,
@@ -19,61 +77,64 @@ export default async function handler(
             return res.status(400).json({ error: 'File URL is required' });
         }
 
-        // Fetch PDF file
-        const response = await fetch(fileUrl);
-
-        if (!response.ok) {
-            throw new Error(`Failed to fetch PDF: ${response.status} ${response.statusText}`);
+        // Validasi URL
+        try {
+            new URL(fileUrl);
+        } catch {
+            return res.status(400).json({ error: 'Invalid URL format' });
         }
 
-        const pdfBuffer = await response.arrayBuffer();
+        // Cek ekstensi file
+        const urlPath = new URL(fileUrl).pathname.toLowerCase();
+        const ext = urlPath.endsWith('.pdf') ? '.pdf' : null;
 
-        if (pdfBuffer.byteLength === 0) {
-            throw new Error('PDF file is empty');
+        if (!ext) {
+            return res.status(400).json({ error: 'Only PDF files are supported' });
         }
 
-        // Load PDF document
-        const loadingTask = pdfjsLib.getDocument({ data: pdfBuffer });
-        const pdf = await loadingTask.promise;
+        console.log(`Processing PDF from URL: ${fileUrl}`);
 
-        let fullText = '';
-        const metadata = await pdf.getMetadata();
+        // Parse CV dari URL
+        const text = await parseCVFromUrl(fileUrl, ext);
 
-        // Extract text from each page
-        for (let i = 1; i <= pdf.numPages; i++) {
-            const page = await pdf.getPage(i);
-            const textContent = await page.getTextContent();
-            const pageText = textContent.items.map((item: any) => item.str).join(' ');
-            fullText += pageText + '\n\n';
+        if (!text || text.trim().length === 0) {
+            throw new Error('No text extracted from PDF');
         }
 
-        // Clean text
-        const cleanedText = fullText
+        // console.log(`Extracted text: ${text}`);
+
+        console.log(`Extracted text length: ${text.length} characters`);
+
+        // Basic cleaning dengan lebih banyak normalisasi
+        const cleanedText = text
+            .replace(/\r\n/g, '\n')
+            .replace(/\r/g, '\n')
+            .replace(/\t/g, ' ')
+            .replace(/\s+/g, ' ')
             .replace(/\n\s*\n/g, '\n\n')
-            .replace(/[ \t]+/g, ' ')
-            .replace(/([.!?])\s+/g, '$1\n')
-            .replace(/[^\w\s.!?,-@\n]/g, '')
-            .split('\n')
-            .map(line => line.trim())
-            .join('\n')
             .trim();
 
+
+        console.log(`Cleaned text length: ${cleanedText.length} characters`);
+        // console.log(`Cleaned text: ${cleanedText}`);
+
         res.status(200).json({
+            success: true,
             text: cleanedText,
-            pageCount: pdf.numPages,
-            metadata: {
-                title: metadata?.info?.Title,
-                author: metadata?.info?.Author,
-                subject: metadata?.info?.Subject,
-                keywords: metadata?.info?.Keywords,
-                creator: metadata?.info?.Creator,
-                producer: metadata?.info?.Producer,
-                creationDate: metadata?.info?.CreationDate,
-                modificationDate: metadata?.info?.ModDate,
-            },
+            fileType: ext,
+            stats: {
+                originalLength: text.length,
+                cleanedLength: cleanedText.length
+            }
         });
+
     } catch (error: any) {
-        console.error('PDF extraction error:', error);
-        res.status(500).json({ error: error.message });
+        console.error('Error:', error.message);
+        console.error('Error stack:', error.stack);
+        res.status(500).json({
+            success: false,
+            error: error.message,
+            details: 'Failed to extract text from PDF'
+        });
     }
-}
+} 

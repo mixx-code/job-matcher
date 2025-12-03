@@ -7,7 +7,7 @@ interface CVAnalysisProps {
   onClose: () => void;
 }
 
-export default function CVAnalysisModal({ cvText, onClose }: CVAnalysisProps) {
+export default function CVAnalysisModalas({ cvText, onClose }: CVAnalysisProps) {
   const [analysis, setAnalysis] = useState<CVAnalysisType | null>(null);
   const [loading, setLoading] = useState(false);
   const [jobDescription, setJobDescription] = useState("");
@@ -37,6 +37,8 @@ export default function CVAnalysisModal({ cvText, onClose }: CVAnalysisProps) {
 
       const data = await response.json();
 
+      console.log("data analisis cv: ", data);
+
       if (response.ok) {
         setAnalysis(data);
       } else {
@@ -59,6 +61,56 @@ export default function CVAnalysisModal({ cvText, onClose }: CVAnalysisProps) {
     if (score >= 80) return "bg-green-100";
     if (score >= 60) return "bg-yellow-100";
     return "bg-red-100";
+  };
+
+  // Fungsi untuk menampilkan informasi pribadi
+  const renderPersonalInfo = () => {
+    if (!analysis?.personalInfo) return null;
+
+    const { name, location, email, phone } = analysis.personalInfo;
+
+    // Cek jika semua field null
+    if (!name && !location && !email && !phone) {
+      return (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
+          <p className="text-yellow-800 text-sm">
+            ⓘ Informasi pribadi tidak ditemukan dalam CV. Pastikan CV berisi nama, lokasi, email, atau telepon.
+          </p>
+        </div>
+      );
+    }
+
+    return (
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+        <h3 className="font-semibold text-blue-900 mb-3">📋 Informasi Pribadi</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {name && (
+            <div className="flex items-center">
+              <span className="text-blue-700 font-medium mr-2">Nama:</span>
+              <span className="text-blue-900">{name}</span>
+            </div>
+          )}
+          {location && (
+            <div className="flex items-center">
+              <span className="text-blue-700 font-medium mr-2">Lokasi:</span>
+              <span className="text-blue-900">{location}</span>
+            </div>
+          )}
+          {email && (
+            <div className="flex items-center">
+              <span className="text-blue-700 font-medium mr-2">Email:</span>
+              <span className="text-blue-900">{email}</span>
+            </div>
+          )}
+          {phone && (
+            <div className="flex items-center">
+              <span className="text-blue-700 font-medium mr-2">Telepon:</span>
+              <span className="text-blue-900">{phone}</span>
+            </div>
+          )}
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -151,6 +203,9 @@ export default function CVAnalysisModal({ cvText, onClose }: CVAnalysisProps) {
           {/* Analysis Results */}
           {analysis && (
             <div className="space-y-6">
+              {/* Personal Info - TAMBAHKAN INI */}
+              {renderPersonalInfo()}
+
               {/* Overall Score */}
               <div className="text-center">
                 <h3 className="text-lg font-semibold mb-2">Overall Score</h3>
@@ -166,8 +221,6 @@ export default function CVAnalysisModal({ cvText, onClose }: CVAnalysisProps) {
                   </span>
                 </div>
               </div>
-
-              {/* TAMBAHKAN BAGIAN INI: */}
 
               {/* Summary */}
               <div className="bg-blue-50 p-4 rounded-lg">
@@ -242,7 +295,7 @@ export default function CVAnalysisModal({ cvText, onClose }: CVAnalysisProps) {
               </div>
 
               {/* Missing Skills */}
-              {analysis.missingSkills.length > 0 && (
+              {analysis.missingSkills && analysis.missingSkills.length > 0 && (
                 <div>
                   <h3 className="text-lg font-semibold mb-3 text-red-600">
                     🔍 Missing Skills

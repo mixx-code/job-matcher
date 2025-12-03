@@ -1,8 +1,21 @@
+export interface PersonalInfo {
+    name: string | null;
+    location: string | null;
+    email: string | null;
+    phone: string | null;
+}
+
 export interface CVAnalysis {
+    personalInfo: PersonalInfo;
     overallScore: number;
     strengths: string[];
     improvements: string[];
-    missingSkills: string[];
+    missingElements?: string[];
+    professionalSummary?: {
+        field?: string;
+        experienceLevel?: string;
+        keyExpertise?: string[];
+    };
     skillMatch: {
         technical: number;
         experience: number;
@@ -10,11 +23,4 @@ export interface CVAnalysis {
     };
     recommendations: string[];
     summary: string;
-}
-
-export interface CVUploadData {
-    fileName: string;
-    fileSize: number;
-    textContent: string;
-    uploadDate: string;
 }
