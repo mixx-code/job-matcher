@@ -12,6 +12,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { fetchJobsData } from "@/utils/fetchJobs";
 import CVAnalysisComponent from "@/components/CVAnalysisComponent";
 import MatchedJobsPage from "@/components/matched-jobs";
+import AllJobsList from "@/components/AllJobsList";
 
 
 export default function Dashboard() {
@@ -78,6 +79,7 @@ export default function Dashboard() {
 
     initializeAuth();
   }, [router]);
+  
 
   const loadJobs = async (page = 1) => {
     try {
@@ -140,6 +142,7 @@ export default function Dashboard() {
             </>
           )
         }
+        <AllJobsList />
       </div>
 
     </div>

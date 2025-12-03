@@ -27,6 +27,7 @@ const MatchedJobsList = ({ jobs }) => {
           <JobCard key={index} job={job} />
         ))}
       </div>
+      
     </div>
   );
 };

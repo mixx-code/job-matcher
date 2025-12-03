@@ -10,11 +10,16 @@
   },
   "dependencies": {
     "@google/genai": "^1.30.0",
+    "@react-email/components": "^0.5.7",
+    "@react-email/render": "^1.4.0",
+    "@react-email/tailwind": "^1.2.2",
     "@supabase/auth-ui-react": "^0.4.7",
     "@supabase/auth-ui-shared": "^0.1.8",
     "@supabase/supabase-js": "^2.86.0",
     "antd": "^6.0.0",
+    "axios": "^1.13.2",
     "cron": "^4.3.5",
+    "dotenv": "^17.2.3",
     "formidable": "^3.5.4",
     "lucide-react": "^0.555.0",
     "mammoth": "^1.11.0",
@@ -23,7 +28,8 @@
     "pdf2json": "^4.0.0",
     "pdfjs-dist": "^3.11.174",
     "react": "19.2.0",
-    "react-dom": "19.2.0"
+    "react-dom": "19.2.0",
+    "resend": "^6.5.2"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
