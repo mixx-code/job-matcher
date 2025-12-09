@@ -308,13 +308,13 @@ const CVAnalysisComponent = () => {
             }
 
             const { data, error } = await supabase
-                .from('user_cvs')
-                .update({
-                    extracted_text: newText,
-                    updated_at: new Date().toISOString()
-                })
-                .eq('id', userCvId)
-                .select();
+            .from('user_cvs')
+            .update<{ extracted_text: string; updated_at: string }>({
+                extracted_text: newText,
+                updated_at: new Date().toISOString()
+            })
+            .eq('id', userCvId)
+            .select();
 
             if (error) {
                 console.error('Error updating extracted_text:', error);
