@@ -20,6 +20,11 @@ export default function Login() {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setLoading(false);
+
+      // Redirect ke dashboard jika ada session
+      if (session) {
+        router.push('/dashboard');
+      }
     });
 
     const {
@@ -27,11 +32,15 @@ export default function Login() {
     } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       setLoading(false);
+
+      // Redirect ke dashboard jika ada session
+      if (session) {
+        router.push('/dashboard');
+      }
     });
 
     return () => subscription.unsubscribe();
   }, [router]);
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
@@ -52,6 +61,7 @@ export default function Login() {
         });
 
         if (error) throw error;
+        setIsSignUp(false);
 
         // Sign up berhasil, redirect ke halaman login dengan pesan sukses
         router.push("/login?signup=success");

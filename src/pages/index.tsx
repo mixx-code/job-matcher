@@ -1,4 +1,5 @@
 // pages/index.js
+import Layout from '@/components/Layout'
 import Link from 'next/link'
 
 export default function Home() {
@@ -45,7 +46,7 @@ export default function Home() {
     <div className="min-h-screen">
       {/* Navbar */}
 
-      <nav className="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-gray-100 shadow-sm">
+      {/* <nav className="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-gray-100 shadow-sm">
         <div className="container mx-auto px-4">
           <div className="flex items-center justify-between h-16">
             <Link href="/" className="flex items-center space-x-2">
@@ -75,7 +76,9 @@ export default function Home() {
             </div>
           </div>
         </div>
-      </nav>
+      </nav> */}
+
+      <Layout>
 
       {/* Hero Section */}
       <section className="bg-gradient-to-br from-blue-50 via-white to-blue-50">
@@ -244,9 +247,11 @@ export default function Home() {
           </div>
         </div>
       </section>
+      </Layout>
+
 
       {/* Footer */}
-      <footer className="bg-gray-900 text-white py-12">
+      {/* <footer className="bg-gray-900 text-white py-12">
         <div className="container mx-auto px-4">
           <div className="grid md:grid-cols-4 gap-8">
             <div>
@@ -297,7 +302,7 @@ export default function Home() {
             <p>&copy; {new Date().getFullYear()} CVAI. All rights reserved.</p>
           </div>
         </div>
-      </footer>
+      </footer> */}
     </div>
   )
 }

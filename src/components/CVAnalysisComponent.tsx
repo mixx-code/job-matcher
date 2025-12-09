@@ -19,10 +19,226 @@ import {
     FileSearchOutlined,
     RocketOutlined,
     DeleteOutlined,
+    SaveOutlined,
+    EditOutlined,
 } from '@ant-design/icons';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { getCurrentSession, getCurrentUserWithProfile } from '@/lib/getSession';
+// Komponen untuk preview dan edit ekstrak text
+const TextPreviewEditor = ({
+    text,
+    onSave,
+    onClose
+}: {
+    text: string;
+    onSave: (newText: string) => Promise<void>;
+    onClose: () => void;
+}) => {
+    const [editingText, setEditingText] = useState(text);
+    const [isSaving, setIsSaving] = useState(false);
+
+    function formatCVText(inputText: string): string {
+        if (!inputText) return '';
+
+        let formatted = inputText;
+
+        // 1. Personal Information - tambahkan line breaks
+        formatted = formatted.replace(/([A-Z][a-z]+ [A-Z][a-z]+(?: [A-Z][a-z]+)?),/g, '$1,\n');
+        formatted = formatted.replace(/(Phone\/Whatsapp): /g, '\n$1: ');
+        formatted = formatted.replace(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/g, '\n$1');
+        formatted = formatted.replace(/(LinkedIn \| Drive \| Project \| GitHub \| Medium)/g, '\n$1\n');
+
+        // 2. PROFESSIONAL SUMMARY - tambahkan line break sebelum dan setelah
+        formatted = formatted.replace(/(PROFESSIONAL SUMMARY)/g, '\n\n$1\n');
+
+        // 3. WORK EXPERIENCE - tambahkan line break sebelum
+        formatted = formatted.replace(/(WORK EXPERIENCE)/g, '\n\n$1\n');
+
+        // 4. Setiap perusahaan - tambahkan line break
+        formatted = formatted.replace(/(Turnkey Resources|PT Arcon Penta Persada)/g, '\n$1');
+
+        // 5. Tanggal pekerjaan - tambahkan line break
+        formatted = formatted.replace(/(Jan \d{4} – (?:April|Dec) \d{4} \(.*?\))/g, '$1\n');
+
+        // 6. Key Projects & Impact - tambahkan line break
+        formatted = formatted.replace(/(Key Projects & Impact:)/g, '\n$1\n');
+
+        // 7. EDUCATION - tambahkan line break
+        formatted = formatted.replace(/(EDUCATION)/g, '\n\n$1\n');
+
+        // 8. CERTIFICATION - tambahkan line break
+        formatted = formatted.replace(/(CERTIFICATION)/g, '\n\n$1\n');
+
+        // 9. SKILLS - tambahkan line break
+        formatted = formatted.replace(/(SKILLS)/g, '\n\n$1\n');
+
+        // 10. LANGUAGES - tambahkan line break
+        formatted = formatted.replace(/(LANGUAGES)/g, '\n\n$1\n');
+
+        // 11. LEARNING LAB/MODULE - tambahkan line break
+        formatted = formatted.replace(/(LEARNING LAB\/MODULE)/g, '\n\n$1\n');
+
+        // 12. ORGANIZATION - tambahkan line break
+        formatted = formatted.replace(/(ORGANIZATION)/g, '\n\n$1\n');
+
+        // 13. Format bullet points konsisten
+        formatted = formatted.replace(/●/g, '\n● ');
+        formatted = formatted.replace(/○/g, '\n  ○ ');
+        formatted = formatted.replace(/•/g, '\n• ');
+        formatted = formatted.replace(/o /g, '\n  o ');
+        formatted = formatted.replace(/■/g, '\n    ■ ');
+
+        // 14. Format sub-sub bullet points
+        formatted = formatted.replace(/    ○ ([A-Z])/g, '    • $1');
+
+        // 15. Hapus nomor halaman
+        formatted = formatted.replace(/-- \d+ of \d+ --/g, '\n');
+
+        // 16. Bersihkan multiple spaces
+        formatted = formatted.replace(/ +/g, ' ');
+
+        // 17. Tambahkan line breaks untuk kalimat panjang di professional summary
+        formatted = formatted.replace(/(\. )([A-Z])/g, '$1\n$2');
+
+        // 18. Format setiap skill category
+        formatted = formatted.replace(/(● [A-Za-z &]+:)/g, '\n$1');
+
+        // 19. Format campus life
+        formatted = formatted.replace(/(Campus Life:)/g, '\n$1\n');
+
+        // 20. Format organization entries
+        formatted = formatted.replace(/o ([A-Za-z].*?Chairman)/g, '\no $1');
+        formatted = formatted.replace(/• ([A-Za-z].*?Chairman)/g, '\n• $1');
+
+        // 21. Tambahkan spacing untuk readability
+        formatted = formatted.replace(/\n\n+/g, '\n\n');
+
+        // 22. Trim whitespace
+        formatted = formatted.split('\n').map(line => line.trim()).join('\n');
+
+        return formatted.trim();
+    }
+
+
+    const handleSave = async () => {
+        try {
+            setIsSaving(true);
+            await onSave(editingText);
+            message.success('Text berhasil disimpan!');
+            onClose();
+        } catch (error) {
+            console.error('Error saving text:', error);
+            message.error('Gagal menyimpan text');
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    return (
+        <Modal
+            title={
+                <div className="flex items-center gap-2">
+                    <EditOutlined className="text-blue-500" />
+                    <span>Preview & Edit Extracted Text</span>
+                </div>
+            }
+            open={true}
+            onCancel={onClose}
+            width={800}
+            footer={[
+                <Button key="cancel" onClick={onClose}>
+                    Batal
+                </Button>,
+                <Button
+                    key="save"
+                    type="primary"
+                    icon={<SaveOutlined />}
+                    loading={isSaving}
+                    onClick={handleSave}
+                >
+                    Simpan Perubahan
+                </Button>
+            ]}
+        >
+            <div className="space-y-4">
+                {/* Info Stats */}
+                <div className="bg-blue-50 p-4 rounded-lg">
+                    <div className="grid grid-cols-3 gap-4 text-center">
+                        <div>
+                            <div className="text-2xl font-bold text-blue-600">
+                                {editingText.length.toLocaleString()}
+                            </div>
+                            <div className="text-sm text-blue-500">Karakter</div>
+                        </div>
+                        <div>
+                            <div className="text-2xl font-bold text-green-600">
+                                {editingText.split(/\s+/).length.toLocaleString()}
+                            </div>
+                            <div className="text-sm text-green-500">Kata</div>
+                        </div>
+                        <div>
+                            <div className="text-2xl font-bold text-purple-600">
+                                {editingText.split('\n').length}
+                            </div>
+                            <div className="text-sm text-purple-500">Baris</div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Text Editor */}
+                <div>
+                    <div className="flex justify-between items-center mb-2">
+                        <label className="font-medium text-gray-700">
+                            Edit Text:
+                        </label>
+                        <div className="text-sm text-gray-500">
+                            {Math.round((editingText.length / 20000) * 100)}% dari batas maksimal
+                        </div>
+                    </div>
+                    <div className="border rounded-lg overflow-hidden">
+                        <textarea
+                            value={formatCVText(editingText)}
+                            onChange={(e) => setEditingText(e.target.value)}
+                            className="w-full h-[500px] p-4 font-mono text-sm leading-relaxed resize-none focus:outline-none"
+                            placeholder="Edit CV text disini..."
+                            maxLength={20000}
+                            style={{
+                                whiteSpace: 'pre-wrap',
+                                wordBreak: 'break-word',
+                                overflowWrap: 'break-word',
+                                lineHeight: '1.8',
+                            }}
+                            spellCheck="false"
+                        />
+                    </div>
+                    <div className="text-right text-sm text-gray-500 mt-1">
+                        {editingText.length}/20000 karakter
+                    </div>
+                </div>
+
+                {/* Tips */}
+                <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
+                    <h4 className="font-medium text-yellow-800 mb-2 flex items-center gap-2">
+                        <BulbOutlined />
+                        Tips untuk hasil analisis yang lebih baik:
+                    </h4>
+                    <ul className="text-sm text-yellow-700 space-y-1 list-disc list-inside">
+                        <li>Pastikan informasi personal (nama, email, telepon) lengkap</li>
+                        <li>Sertakan pengalaman kerja dengan detail</li>
+                        <li>Tambahkan skill dan kompetensi yang relevan</li>
+                        <li>Gunakan format yang rapi dan terstruktur</li>
+                    </ul>
+                </div>
+            </div>
+        </Modal>
+    );
+};
+
+
+
+
+
 
 const CVAnalysisComponent = () => {
 
@@ -32,6 +248,9 @@ const CVAnalysisComponent = () => {
     const [textCv, setTextCv] = useState<'' | string>('');
     const [dataCvAnalysis, setDataCvAnalysis] = useState(null);
     const [user_id, setUser_id] = useState('');
+    const [showTextEditor, setShowTextEditor] = useState(false);
+    const [userCvId, setUserCvId] = useState<string | null>(null);
+    const [jobsIndo, setJobsIndo] = useState([]);
 
     // List of color combinations
     const colorOptions = [
@@ -57,6 +276,48 @@ const CVAnalysisComponent = () => {
         if (score >= 80) return 'text-green-700';
         if (score >= 70) return 'text-yellow-700';
         return 'text-red-700';
+    };
+
+    // Fungsi untuk update extracted_text di Supabase
+    const updateExtractedText = async (newText: string) => {
+        try {
+            if (!userCvId) {
+                throw new Error('ID CV tidak ditemukan');
+            }
+
+            const { data, error } = await supabase
+                .from('user_cvs')
+                .update({
+                    extracted_text: newText,
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', userCvId)
+                .select();
+
+            if (error) {
+                console.error('Error updating extracted_text:', error);
+                throw error;
+            }
+
+            console.log('extracted_text berhasil diupdate:', data);
+
+            // Update state lokal
+            setTextCv(newText);
+
+            return {
+                success: true,
+                message: 'Text berhasil diupdate',
+                data: data
+            };
+
+        } catch (error) {
+            console.error('Error dalam updateExtractedText:', error);
+            return {
+                success: false,
+                message: error.message || 'Gagal mengupdate text',
+                error: error
+            };
+        }
     };
 
     const saveCvAnalysisToSupabase = async (cvAnalysisData: object, userId: string) => {
@@ -110,22 +371,57 @@ const CVAnalysisComponent = () => {
         }
     };
 
-const getUserCvAnalyses = async (userId: string) => {
-    try {
-        if (!userId) {
-            throw new Error('User ID diperlukan');
-        }
+    const getUserCvAnalyses = async (userId: string) => {
+        try {
+            if (!userId) {
+                throw new Error('User ID diperlukan');
+            }
 
-        const { data, error } = await supabase
-            .from('cv_analyses')
-            .select('*')
-            .eq('user_id', userId)
-            .order('created_at', { ascending: false })
-            .limit(1);
+            const { data, error } = await supabase
+                .from('cv_analyses')
+                .select('*')
+                .eq('user_id', userId)
+                .order('created_at', { ascending: false })
+                .limit(1);
 
-        if (error) {
-            console.error('Error mengambil data dari Supabase:', error);
-            // Jangan throw error, kembalikan success: false
+            if (error) {
+                console.error('Error mengambil data dari Supabase:', error);
+                // Jangan throw error, kembalikan success: false
+                return {
+                    success: false,
+                    message: error.message || 'Gagal mengambil data analisis CV',
+                    error: error,
+                    data: []
+                };
+            }
+
+            console.log('Data analisis CV ditemukan:', data);
+
+            // Cek apakah ada data
+            if (data && data.length > 0 && data[0]) {
+                console.log('Mengatur data analisis CV ke state');
+                setDataCvAnalysis(data[0].analysis_data);
+
+                return {
+                    success: true,
+                    data: data,
+                    hasData: true
+                };
+            } else {
+                console.log('Tidak ada data analisis CV ditemukan untuk user:', userId);
+                // Set state ke null atau empty object
+                setDataCvAnalysis(null);
+
+                return {
+                    success: true,
+                    data: [],
+                    hasData: false,
+                    message: 'Belum ada data analisis CV'
+                };
+            }
+
+        } catch (error) {
+            console.error('Error dalam getUserCvAnalyses:', error);
             return {
                 success: false,
                 message: error.message || 'Gagal mengambil data analisis CV',
@@ -133,42 +429,7 @@ const getUserCvAnalyses = async (userId: string) => {
                 data: []
             };
         }
-
-        console.log('Data analisis CV ditemukan:', data);
-
-        // Cek apakah ada data
-        if (data && data.length > 0 && data[0]) {
-            console.log('Mengatur data analisis CV ke state');
-            setDataCvAnalysis(data[0].analysis_data);
-            
-            return {
-                success: true,
-                data: data,
-                hasData: true
-            };
-        } else {
-            console.log('Tidak ada data analisis CV ditemukan untuk user:', userId);
-            // Set state ke null atau empty object
-            setDataCvAnalysis(null);
-            
-            return {
-                success: true,
-                data: [],
-                hasData: false,
-                message: 'Belum ada data analisis CV'
-            };
-        }
-
-    } catch (error) {
-        console.error('Error dalam getUserCvAnalyses:', error);
-        return {
-            success: false,
-            message: error.message || 'Gagal mengambil data analisis CV',
-            error: error,
-            data: []
-        };
-    }
-};
+    };
 
     const deleteAllUserCvAnalyses = async (userId: string) => {
         try {
@@ -214,7 +475,6 @@ const getUserCvAnalyses = async (userId: string) => {
                     getCurrentUserWithProfile()
                 ]);
 
-                // Cek apakah userData ada
                 if (!userData?.id) {
                     console.log('User tidak ditemukan');
                     return;
@@ -222,12 +482,11 @@ const getUserCvAnalyses = async (userId: string) => {
 
                 setUser_id(userData.id);
 
-                // Ambil extracted_text dari user_cvs
                 const { data, error } = await supabase
                     .from('user_cvs')
-                    .select('extracted_text, created_at, file_name') // tambahkan field untuk debugging
+                    .select('id, extracted_text, created_at, file_name')
                     .eq('user_id', String(userData.id))
-                    .order('created_at', { ascending: false }) // PERUBAHAN DI SINI: false untuk data terbaru
+                    .order('created_at', { ascending: false })
                     .limit(1);
 
                 if (error) {
@@ -235,24 +494,24 @@ const getUserCvAnalyses = async (userId: string) => {
                     return;
                 }
 
-                // Debug: tampilkan data yang diambil
                 console.log("Data yang diambil:", {
+                    id: data?.[0]?.id,
                     file_name: data?.[0]?.file_name,
                     created_at: data?.[0]?.created_at,
                     has_text: !!(data?.[0]?.extracted_text),
                     text_length: data?.[0]?.extracted_text?.length
                 });
 
-                // Cek apakah data ada dan extracted_text tidak kosong
                 if (data && data.length > 0 && data[0].extracted_text) {
                     console.log("extracted_text ditemukan dari file:", data[0].file_name);
                     setTextCv(data[0].extracted_text);
+                    setUserCvId(data[0].id);
                 } else {
                     console.log("Tidak ada extracted_text ditemukan");
                     setTextCv('');
+                    setUserCvId(null);
                 }
 
-                // Ambil riwayat analisis
                 await getUserCvAnalyses(String(userData.id));
 
             } catch (error) {
@@ -261,9 +520,31 @@ const getUserCvAnalyses = async (userId: string) => {
         };
 
         getEkstrakText();
+        fetchAllJobs();
     }, []);
 
     console.log("user_id: ", user_id);
+
+    const fetchAllJobs = async () => {
+        try {
+            const response = await fetch('/api/jobs')
+            const result = await response.json()
+
+            if (result.success) {
+                console.log("ini result", result.data)
+                // result.data berisi semua jobs sekaligus
+                console.log(`Total jobs: ${result.count}`)
+                setJobsIndo(result.data)
+                return result.data
+            }
+            return []
+        } catch (error) {
+            console.error('Error:', error)
+            return []
+        }
+    };
+
+
 
     const handleAnalyzeCv = async () => {
         try {
@@ -282,12 +563,98 @@ const getUserCvAnalyses = async (userId: string) => {
             console.log("data analisis cv: ", data);
             saveCvAnalysisToSupabase(data, String(user_id));
             setDataCvAnalysis(data);
+
+            const analisisCv = await getUserCvAnalyses(String(user_id));
+            console.log("analisisCv find job: ", analisisCv.data);
+
+            //job rekomendasi
+            const findJobs = await fetch('/api/rekomendasi-jobs', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    hasilAnalisis: analisisCv.data[0].analysis_data,
+                    listJobs: jobsIndo
+                }),
+            });
+
+            const jobsResult = await findJobs.json();
+            console.log('Jobs found:', jobsResult);
+            localStorage.setItem('jobs', JSON.stringify(jobsResult.matched_jobs));
+
+
+
         } catch (error) {
             console.error('Error analyzing CV:', error);
         } finally {
             setLoading(false);
         }
     }
+
+    // const handleSend = async (alert: Alert) => {
+    //   console.log('Send alert:', alert);
+
+    //   try {
+    //     // 1. Fetch analisis CV
+    //      const [sessionData, userData] = await Promise.all([
+    //           getCurrentSession(),
+    //           getCurrentUserWithProfile()
+    //         ]);
+
+    //         console.log("userData :", userData?.id);
+    //     const analisisCv = await getUserCvAnalyses(String(userData?.id));
+    //     console.log("analisisCv: ", analisisCv.data);
+
+    //     // 2. Dapatkan rekomendasi jobs
+    //     const findJobs = await fetch('/api/rekomendasi-jobs', {
+    //       method: 'POST',
+    //       headers: {
+    //         'Content-Type': 'application/json',
+    //       },
+    //       body: JSON.stringify({
+    //         hasilAnalisis: analisisCv.data,
+    //         listJobs: jobsIndo
+    //       }),
+    //     });
+
+    //     const jobsResult = await findJobs.json();
+    //     console.log('Jobs found:', jobsResult);
+
+
+
+
+    //     // 3. Kirim alert dengan data jobs
+    //     const response = await fetch('/api/send', {
+    //       method: 'POST',
+    //       headers: {
+    //         'Content-Type': 'application/json',
+    //       },
+    //       body: JSON.stringify({
+    //         firstName: "rizki",
+    //         email: alert.notification_target || "",
+    //         alert: alert,
+    //         jobs: jobsResult // Gunakan hasil langsung dari API
+    //       }),
+    //     });
+
+    //     // Periksa response
+    //     if (!response.ok) {
+    //       const errorData = await response.json();
+    //       console.error('Error response:', errorData);
+    //       throw new Error(errorData.error || 'Failed to send');
+    //     }
+
+    //     const data = await response.json();
+    //     console.log('Success:', data);
+
+    //     // Update state jika diperlukan untuk UI
+    //     setDataRekomendasiJobs(jobsResult);
+
+    //   } catch (error) {
+    //     console.error('Error sending alert:', error);
+    //   }
+    // }
 
     const handleDeleteAnalysisCv = async () => {
         try {
@@ -301,44 +668,114 @@ const getUserCvAnalyses = async (userId: string) => {
         }
     }
 
+    // Preview text snippet untuk display
+    const getTextPreview = () => {
+        if (!textCv) return "Belum ada extracted text";
+
+        const preview = textCv.length > 150
+            ? textCv.substring(0, 150) + '...'
+            : textCv;
+
+        return preview;
+    };
+
     return (
         <div className="w-full p-5 bg-gray-50 min-h-screen flex flex-col items-center mx-auto">
-            <div className='flex items-center gap-4'>
-                <Button
-                    type="primary"
-                    icon={<Bot />}
-                    loading={loading && { icon: <SyncOutlined spin /> }}
-                    disabled={loading}
-                    style={loading && { background: "#1778ff", borderColor: "#1778ff", color: "#fff" }}
-                    onClick={handleAnalyzeCv}
-                >
-                    {loading ? "Analyzing..." : dataCvAnalysis === null ? "Analyze Your CV" : "Reanalyze Your CV"}
-                </Button>
-                {
-                    dataCvAnalysis && (
+            <div className='flex flex-col  lg:items-center lg:justify-between gap-4 lg:gap-6'>
+                <div className='flex flex-col sm:flex-row gap-3 sm:gap-4 w-full lg:w-auto'>
+                    <div className='flex flex-wrap items-center gap-3 sm:gap-4'>
                         <Button
-                            type="default"
-                            danger
-                            icon={<DeleteOutlined />}
-                            onClick={() => {
-                                Modal.confirm({
-                                    title: 'Hapus Analisis CV',
-                                    content: 'Apakah Anda yakin ingin menghapus data analisis CV? Tindakan ini tidak dapat dibatalkan.',
-                                    okText: 'Ya, Hapus',
-                                    cancelText: 'Batal',
-                                    okType: 'danger',
-                                    onOk: async () => {
-                                        handleDeleteAnalysisCv();
-                                    }
-                                });
-                            }}
+                            type="primary"
+                            icon={<Bot />}
+                            loading={loading && { icon: <SyncOutlined spin /> }}
+                            disabled={loading}
+                            style={loading && { background: "#1778ff", borderColor: "#1778ff", color: "#fff" }}
+                            onClick={handleAnalyzeCv}
+                            className='flex-1 sm:flex-none'
                         >
-                            Delete Your Analyze
+                            {loading ? "Analyzing..." : dataCvAnalysis === null ? "Analyze Your CV" : "Reanalyze Your CV"}
                         </Button>
-                    )
-                }
 
+                        {/* Tombol untuk preview/edit extracted text */}
+                        {textCv && (
+                            <Button
+                                type="default"
+                                icon={<EditOutlined />}
+                                onClick={() => setShowTextEditor(true)}
+                                size="large"
+                                className='flex-1 sm:flex-none'
+                            >
+                                <span className='hidden sm:inline'>Preview/Edit Extracted Text</span>
+                                <span className='sm:hidden'>Edit Text</span>
+                            </Button>
+                        )}
+
+                        {
+                            dataCvAnalysis && (
+                                <Button
+                                    type="default"
+                                    danger
+                                    icon={<DeleteOutlined />}
+                                    onClick={() => {
+                                        Modal.confirm({
+                                            title: 'Hapus Analisis CV',
+                                            content: 'Apakah Anda yakin ingin menghapus data analisis CV? Tindakan ini tidak dapat dibatalkan.',
+                                            okText: 'Ya, Hapus',
+                                            cancelText: 'Batal',
+                                            okType: 'danger',
+                                            onOk: async () => {
+                                                handleDeleteAnalysisCv();
+                                            }
+                                        });
+                                    }}
+                                    className='flex-1 sm:flex-none'
+                                >
+                                    <span className='hidden sm:inline'>Delete Your Analyze</span>
+                                    <span className='sm:hidden'>Delete</span>
+                                </Button>
+                            )
+                        }
+                    </div>
+                </div>
+
+                <div className="w-full lg:flex-1 lg:max-w-lg xl:max-w-xl">
+                    <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
+                            <div className="flex items-center gap-2">
+                                <h4 className="font-medium text-gray-700 flex items-center gap-2 flex-wrap">
+                                    <FileTextOutlined />
+                                    <span>Extracted Text Preview:</span>
+                                    <span className='text-[0.7rem] italic text-yellow-500'>Tidak Merubah CV Asli</span>
+                                </h4>
+                            </div>
+                            <span className={`text-sm px-2 py-1 rounded self-start sm:self-auto ${textCv ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                                {textCv ? 'Tersedia' : 'Tidak tersedia'}
+                            </span>
+                        </div>
+                        <p className="text-gray-600 text-sm line-clamp-3">
+                            {getTextPreview()}
+                        </p>
+                        {textCv && (
+                            <div className="text-xs text-gray-500 mt-2">
+                                {textCv.length.toLocaleString()} karakter • {textCv.split(/\s+/).length.toLocaleString()} kata
+                            </div>
+                        )}
+                    </div>
+                </div>
             </div>
+
+
+
+            {/* Modal untuk edit extracted text */}
+            {showTextEditor && (
+                <TextPreviewEditor
+                    text={textCv || ''}
+                    onSave={updateExtractedText}
+                    onClose={() => setShowTextEditor(false)}
+                />
+            )}
+
+
             {/* Header Section */}
             {
                 dataCvAnalysis === null ? (

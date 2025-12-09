@@ -1,5 +1,5 @@
 /* eslint-disable react-hooks/static-components */
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     Card,
     Tag,
@@ -11,35 +11,137 @@ import {
     Row,
     Col,
     Divider,
-    Grid
+    Grid,
+    message,
+    Modal
 } from 'antd';
 import {
     UserOutlined,
     EnvironmentOutlined,
     CheckCircleOutlined,
-    InfoCircleOutlined,
     DollarCircleOutlined,
     LinkOutlined,
     SaveOutlined,
-    BulbOutlined
+    BulbOutlined,
+    ExclamationCircleOutlined
 } from '@ant-design/icons';
+import { saveJobToDatabase, checkIfJobSaved } from '@/lib/saveJob';
 
 const { Title, Text, Paragraph } = Typography;
 const { useBreakpoint } = Grid;
+const { confirm } = Modal;
 
-const JobCard = ({ job }) => {
+interface Job {
+    job_url: string;
+    job_title: string;
+    company: string;
+    location: string;
+    job_description: string;
+    is_remote: boolean;
+    salary_range: string;
+    match_score: number;
+    match_reasons: string[];
+    missing_skills: string[];
+    recommended_actions: string[];
+}
+
+interface JobCardProps {
+    job: Job;
+}
+
+const JobCard: React.FC<JobCardProps> = ({ job }) => {
     const screens = useBreakpoint();
+    const [isSaving, setIsSaving] = useState(false);
+    const [isSaved, setIsSaved] = useState(false);
+    const [userId, setUserId] = useState<string>('');
+
+    console.log("ini job: ", job);
 
     const getScoreColor = (score: number) => {
         if (score >= 70) return '#52c41a';
         if (score >= 50) return '#faad14';
         return '#ff4d4f';
     };
-    interface score {
-        score: number
-    }
 
-    const ProgressCircle = ({ score }: score) => {
+    // Get user ID (contoh sederhana, ganti dengan auth system yang sebenarnya)
+    useEffect(() => {
+        // Ambil user ID dari localStorage atau auth context
+        const storedUserId = localStorage.getItem('user_id') || 'guest-123';
+        setUserId(storedUserId);
+    }, []);
+
+    // Cek apakah job sudah disimpan
+    useEffect(() => {
+        const checkSavedStatus = async () => {
+            if (userId && job.job_url) {
+                const saved = await checkIfJobSaved(job.job_url, userId);
+                setIsSaved(saved);
+            }
+        };
+
+        checkSavedStatus();
+    }, [job.job_url, userId]);
+
+    const handleSaveJob = async () => {
+        if (isSaved) {
+            message.info('Job sudah disimpan sebelumnya');
+            return;
+        }
+
+        if (!userId) {
+            message.error('Silakan login untuk menyimpan job');
+            return;
+        }
+
+        setIsSaving(true);
+
+        try {
+            // Tampilkan konfirmasi sebelum menyimpan
+            confirm({
+                title: 'Simpan Lowongan Kerja',
+                icon: <ExclamationCircleOutlined />,
+                content: `Apakah Anda yakin ingin menyimpan lowongan "${job.job_title}"?`,
+                okText: 'Ya, Simpan',
+                cancelText: 'Batal',
+                onOk: async () => {
+                    const jobData = {
+                        job_url: job.job_url || '',
+                        job_title: job.job_title || '',
+                        company: job.company || '',
+                        location: job.location || '',
+                        salary_range: job.salary_range || 'Informasi tidak tersedia',
+                        user_id: userId,
+                        status: 'saved' as const
+                    };
+
+                    const result = await saveJobToDatabase(jobData);
+
+                    if (result.success) {
+                        message.success('Lowongan berhasil disimpan!');
+                        setIsSaved(true);
+
+                        // Simpan ke localStorage juga untuk cache
+                        const savedJobs = JSON.parse(localStorage.getItem('saved_jobs') || '[]');
+                        savedJobs.push(job.job_url);
+                        localStorage.setItem('saved_jobs', JSON.stringify(savedJobs));
+                    } else {
+                        message.error(`Gagal menyimpan: ${result.message || 'Unknown error'}`);
+                    }
+                },
+                onCancel() {
+                    message.info('Batal menyimpan');
+                },
+            });
+
+        } catch (error) {
+            console.error('Error saving job:', error);
+            message.error('Terjadi kesalahan saat menyimpan');
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    const ProgressCircle = ({ score }: { score: number }) => {
         const color = getScoreColor(score);
 
         return (
@@ -93,6 +195,11 @@ const JobCard = ({ job }) => {
                             {job.is_remote && (
                                 <Tag color="green" icon={<CheckCircleOutlined />}>
                                     Remote
+                                </Tag>
+                            )}
+                            {isSaved && (
+                                <Tag color="blue" icon={<SaveOutlined />}>
+                                    Tersimpan
                                 </Tag>
                             )}
                         </Space>
@@ -187,7 +294,7 @@ const JobCard = ({ job }) => {
                 </Col>
 
                 <Col xs={24} md={12}>
-                    <Row gutter={[8, 8]} justify={screens.md ? 'end' : 'start'}>
+                    <Row gutter={[8, 8]} justify={screens.md ? 'end' : 'start'} style={{ gap: "10px" }}>
                         <Col xs={12} sm={8} md={8}>
                             <Button
                                 type="primary"
@@ -200,8 +307,19 @@ const JobCard = ({ job }) => {
                             </Button>
                         </Col>
                         <Col xs={12} sm={8} md={8}>
-                            <Button block icon={<SaveOutlined />}>
-                                {screens.xs ? 'Save' : 'Save Job'}
+                            <Button
+                                block
+                                icon={<SaveOutlined />}
+                                onClick={handleSaveJob}
+                                loading={isSaving}
+                                type={isSaved ? "default" : "primary"}
+                                style={{ backgroundColor: isSaved ? '#f0f0f0' : '#59AC77' }}
+                                disabled={isSaved || !userId}
+                            >
+                                {isSaved
+                                    ? (screens.xs ? 'Saved' : 'Saved')
+                                    : (screens.xs ? 'Save' : 'Save Job')
+                                }
                             </Button>
                         </Col>
                     </Row>
