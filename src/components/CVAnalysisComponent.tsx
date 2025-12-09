@@ -311,15 +311,16 @@ const CVAnalysisComponent = () => {
             if (!userCvId) {
                 throw new Error('ID CV tidak ditemukan');
             }
-
-            const { data, error } = await supabase
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const { data, error } = await (supabase as any)
                 .from('user_cvs')
-                .update<any>({
+                .update({
                     extracted_text: newText,
                     updated_at: new Date().toISOString()
                 })
                 .eq('id', userCvId)
                 .select();
+
 
             if (error) {
                 console.error('Error updating extracted_text:', error);
