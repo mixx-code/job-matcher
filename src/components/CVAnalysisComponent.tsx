@@ -288,13 +288,13 @@ const CVAnalysisComponent = () => {
         { bg: 'bg-cyan-100', text: 'text-cyan-800', border: 'border-cyan-200' },
     ];
 
-    const getScoreColor = (score) => {
+    const getScoreColor = (score: number) => {
         if (score >= 80) return '#52c41a';
         if (score >= 70) return '#faad14';
         return '#ff4d4f';
     };
 
-    const getScoreTextColor = (score) => {
+    const getScoreTextColor = (score: number) => {
         if (score >= 80) return 'text-green-700';
         if (score >= 70) return 'text-yellow-700';
         return 'text-red-700';
