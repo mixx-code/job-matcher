@@ -240,13 +240,35 @@ const TextPreviewEditor = ({
 
 
 
+interface CVAnalysisData {
+    personalInfo?: {
+        name?: string;
+        email?: string;
+        phone?: string;
+        location?: string;
+    };
+    overallScore?: number;
+    summary?: string;
+    professionalSummary?: {
+        field?: string;
+        experienceLevel?: string;
+        keyExpertise?: string[];
+    };
+    skillMatch?: Record<string, number>;
+    rekomendasiJobs?: string[];
+    strengths?: string[];
+    improvements?: string[];
+    missingSkills?: string[];
+    recommendations?: string[];
+}
+
 const CVAnalysisComponent = () => {
 
 
     const [loading, setLoading] = useState(false);
 
     const [textCv, setTextCv] = useState<'' | string>('');
-    const [dataCvAnalysis, setDataCvAnalysis] = useState(null);
+    const [dataCvAnalysis, setDataCvAnalysis] = useState<CVAnalysisData | null>(null);
     const [user_id, setUser_id] = useState('');
     const [showTextEditor, setShowTextEditor] = useState(false);
     const [userCvId, setUserCvId] = useState<string | null>(null);
