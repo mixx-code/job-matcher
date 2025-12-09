@@ -12,7 +12,7 @@ interface AlertCardProps {
 
 export default function AlertCard({ alert, onToggleActive, onDelete, onEdit, onSend }: AlertCardProps) {
   const getFrequencyBadge = (frequency: string) => {
-    const colors = {
+    const colors: Record<string, string> = {
       daily: 'bg-blue-100 text-blue-800',
       weekly: 'bg-purple-100 text-purple-800'
     };
