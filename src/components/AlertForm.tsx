@@ -51,10 +51,11 @@ useEffect(() => {
         keywords: Array.isArray(initialData.searchCriteria.keywords) 
           ? initialData.searchCriteria.keywords 
           : typeof initialData.searchCriteria.keywords === 'string'
-            ? initialData.searchCriteria.keywords.split(',').map(k => k.trim()).filter(k => k)
+            ? (initialData.searchCriteria.keywords as string).split(',').map(k => k.trim()).filter(k => k)
             : []
       }
     };
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setFormData(normalizedData);
   }
 }, [initialData]);
