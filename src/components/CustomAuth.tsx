@@ -23,7 +23,7 @@ export default function CustomAuth() {
       if (error) throw error;
       setMessage("Check your email for verification link!");
     } catch (error) {
-      setMessage(error.message);
+      setMessage("gagal mendaftar akun");
     } finally {
       setLoading(false);
     }
@@ -42,7 +42,7 @@ export default function CustomAuth() {
       if (error) throw error;
       setMessage("Sign in successful!");
     } catch (error) {
-      setMessage(error.message);
+      setMessage("Sign in failed!");
     } finally {
       setLoading(false);
     }
@@ -59,7 +59,7 @@ export default function CustomAuth() {
 
       if (error) throw error;
     } catch (error) {
-      setMessage(error.message);
+      setMessage("Sign in with Google failed!");
     }
   };
 

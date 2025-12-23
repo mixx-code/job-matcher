@@ -236,16 +236,25 @@ const TextPreviewEditor = ({
 };
 
 
-
-interface UserCvRow {
+// Buat file baru untuk tipe data
+export interface UserCvRow {
     id: string;
     extracted_text: string;
+    file_name?: string;
+    created_at?: string;
+    updated_at?: string;
+    user_id?: string;
+}
+
+export interface CVAnalysisRow {
+    id: string;
+    user_id: string;
+    analysis_data: CVAnalysisData;
+    created_at: string;
     updated_at: string;
 }
 
-
-
-interface CVAnalysisData {
+export interface CVAnalysisData {
     personalInfo?: {
         name?: string;
         email?: string;
@@ -266,7 +275,6 @@ interface CVAnalysisData {
     missingSkills?: string[];
     recommendations?: string[];
 }
-
 const CVAnalysisComponent = () => {
 
 
@@ -306,7 +314,7 @@ const CVAnalysisComponent = () => {
     };
 
     // Fungsi untuk update extracted_text di Supabase
-    const updateExtractedText = async (newText: string) => {
+    const updateExtractedText = async (newText: string): Promise<void> => {
         try {
             if (!userCvId) {
                 throw new Error('ID CV tidak ditemukan');
@@ -332,23 +340,13 @@ const CVAnalysisComponent = () => {
             // Update state lokal
             setTextCv(newText);
 
-            return {
-                success: true,
-                message: 'Text berhasil diupdate',
-                data: data
-            };
-
         } catch (error) {
             console.error('Error dalam updateExtractedText:', error);
-            return {
-                success: false,
-                message: error.message || 'Gagal mengupdate text',
-                error: error
-            };
+            throw error;
         }
     };
 
-    const saveCvAnalysisToSupabase = async (cvAnalysisData: object, userId: string) => {
+    const saveCvAnalysisToSupabase = async (cvAnalysisData: CVAnalysisData, userId: string) => {
         try {
             // Validasi input
             if (!cvAnalysisData || typeof cvAnalysisData !== 'object') {
@@ -369,9 +367,10 @@ const CVAnalysisComponent = () => {
 
             console.log('Menyimpan data ke Supabase:', analysisData);
 
-            // Simpan ke Supabase
-            const { data, error } = await supabase
-                .from('cv_analyses') // Nama tabel di Supabase
+            // Simpan ke Supabase - PERBAIKAN 1
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const { data, error } = await (supabase as any)
+                .from('cv_analyses')
                 .insert([analysisData])
                 .select()
                 .single();
@@ -381,19 +380,17 @@ const CVAnalysisComponent = () => {
                 throw error;
             }
 
-            console.log('Data berhasil disimpan ke Supabase dengan ID:', data.id);
             return {
                 success: true,
                 message: 'Data analisis CV berhasil disimpan',
                 data: data,
-                analysisId: data.id
+                analysisId: data?.id
             };
-
         } catch (error) {
             console.error('Error dalam saveCvAnalysisToSupabase:', error);
             return {
                 success: false,
-                message: error.message || 'Gagal menyimpan data analisis CV',
+                message: 'Gagal menyimpan data analisis CV',
                 error: error
             };
         }
@@ -414,7 +411,6 @@ const CVAnalysisComponent = () => {
 
             if (error) {
                 console.error('Error mengambil data dari Supabase:', error);
-                // Jangan throw error, kembalikan success: false
                 return {
                     success: false,
                     message: error.message || 'Gagal mengambil data analisis CV',
@@ -425,19 +421,19 @@ const CVAnalysisComponent = () => {
 
             console.log('Data analisis CV ditemukan:', data);
 
-            // Cek apakah ada data
+            // Cek apakah ada data - PERBAIKAN 2 & 3
             if (data && data.length > 0 && data[0]) {
+                const cvAnalysis = data[0] as CVAnalysisRow;
                 console.log('Mengatur data analisis CV ke state');
-                setDataCvAnalysis(data[0].analysis_data);
+                setDataCvAnalysis(cvAnalysis.analysis_data);
 
                 return {
                     success: true,
-                    data: data,
+                    data: data as CVAnalysisRow[],
                     hasData: true
                 };
             } else {
                 console.log('Tidak ada data analisis CV ditemukan untuk user:', userId);
-                // Set state ke null atau empty object
                 setDataCvAnalysis(null);
 
                 return {
@@ -447,13 +443,10 @@ const CVAnalysisComponent = () => {
                     message: 'Belum ada data analisis CV'
                 };
             }
-
-        } catch (error) {
-            console.error('Error dalam getUserCvAnalyses:', error);
+        } catch (errory) {
             return {
                 success: false,
-                message: error.message || 'Gagal mengambil data analisis CV',
-                error: error,
+                message: 'Gagal mengambil data analisis CV',
                 data: []
             };
         }
@@ -487,7 +480,7 @@ const CVAnalysisComponent = () => {
             console.error('Error dalam deleteAllUserCvAnalyses:', error);
             return {
                 success: false,
-                message: error.message || 'Gagal menghapus data analisis CV',
+                message: 'Gagal menghapus data analisis CV',
                 error: error,
                 deletedCount: 0
             };
@@ -522,18 +515,18 @@ const CVAnalysisComponent = () => {
                     return;
                 }
 
-                console.log("Data yang diambil:", {
-                    id: data?.[0]?.id,
-                    file_name: data?.[0]?.file_name,
-                    created_at: data?.[0]?.created_at,
-                    has_text: !!(data?.[0]?.extracted_text),
-                    text_length: data?.[0]?.extracted_text?.length
-                });
-
-                if (data && data.length > 0 && data[0].extracted_text) {
-                    console.log("extracted_text ditemukan dari file:", data[0].file_name);
-                    setTextCv(data[0].extracted_text);
-                    setUserCvId(data[0].id);
+                // PERBAIKAN 4, 5, 6, 7
+                if (data && data.length > 0) {
+                    const cvData = data[0] as UserCvRow;
+                    if (cvData && cvData.extracted_text) {
+                        console.log("extracted_text ditemukan dari file:", cvData.file_name);
+                        setTextCv(cvData.extracted_text);
+                        setUserCvId(cvData.id);
+                    } else {
+                        console.log("Tidak ada extracted_text ditemukan");
+                        setTextCv('');
+                        setUserCvId(null);
+                    }
                 } else {
                     console.log("Tidak ada extracted_text ditemukan");
                     setTextCv('');
@@ -541,7 +534,6 @@ const CVAnalysisComponent = () => {
                 }
 
                 await getUserCvAnalyses(String(userData.id));
-
             } catch (error) {
                 console.error('Error dalam getEkstrakText:', error);
             }
@@ -717,7 +709,7 @@ const CVAnalysisComponent = () => {
                             icon={<Bot />}
                             loading={loading && { icon: <SyncOutlined spin /> }}
                             disabled={loading}
-                            style={loading && { background: "#1778ff", borderColor: "#1778ff", color: "#fff" }}
+                            style={loading ? { backgroundColor: "#1778ff", borderColor: "#1778ff", color: "#fff" } : undefined}
                             onClick={handleAnalyzeCv}
                             className='flex-1 sm:flex-none'
                         >
@@ -833,7 +825,7 @@ const CVAnalysisComponent = () => {
                             </h2>
 
                             <p className="text-gray-600 mb-6 text-lg leading-relaxed">
-                                Upload your CV and click the <span className="font-semibold text-blue-600">"Analyze Your CV"</span> button above to get personalized insights, score, and recommendations.
+                                Upload your CV and click the <span className="font-semibold text-blue-600">Analyze Your CV</span> button above to get personalized insights, score, and recommendations.
                             </p>
 
                             {/* Features Preview */}
@@ -877,7 +869,7 @@ const CVAnalysisComponent = () => {
                                     </li>
                                     <li className="flex items-start">
                                         <span className="flex-shrink-0 w-6 h-6 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-sm font-bold mr-3">2</span>
-                                        <span>Click "Analyze Your CV" button</span>
+                                        <span>Click Analyze Your CV button</span>
                                     </li>
                                     <li className="flex items-start">
                                         <span className="flex-shrink-0 w-6 h-6 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-sm font-bold mr-3">3</span>
@@ -993,9 +985,11 @@ const CVAnalysisComponent = () => {
                                                 <div className="flex flex-wrap gap-2 mt-2">
                                                     {dataCvAnalysis.professionalSummary?.keyExpertise?.map(skill => {
                                                         // Generate random color class based on skill name
-                                                        const getRandomColorClass = (skillName) => {
+                                                        const getRandomColorClass = (skillName: string) => {
                                                             // Create a simple hash from the skill name to get consistent colors for same skill
-                                                            const hash = Array.from(skillName).reduce((acc, char) => acc + char.charCodeAt(0), 0);
+                                                            const hash = Array.from(skillName).reduce((acc: number, char: string) =>
+                                                                acc + char.charCodeAt(0), 0
+                                                            );
 
                                                             // Use hash to select a color (consistent for same skill name)
                                                             const colorIndex = hash % colorOptions.length;
