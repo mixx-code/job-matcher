@@ -30,8 +30,14 @@ import { supabase } from '@/lib/supabaseClient';
 
 const { Text } = Typography;
 
+interface User {
+  email?: string;
+  name?: string;
+  avatar?: string;
+}
+
 interface HeaderProps {
-  user: any;
+  user: User;
   onLogout?: () => void;
 }
 
@@ -104,52 +110,6 @@ export default function Header({ user, onLogout }: HeaderProps) {
         setMobileMenuOpen(false);
       }
     },
-    // {
-    //   key: 'notifications',
-    //   icon: <BellOutlined />,
-    //   label: (
-    //     <div className="flex items-center justify-between">
-    //       <span>Notifications</span>
-    //       <Badge count={3} size="small" />
-    //     </div>
-    //   ),
-    //   onClick: () => {
-    //     router.push('/notifications');
-    //     setMobileMenuOpen(false);
-    //   }
-    // }
-    // ,
-    // {
-    //   key: 'settings',
-    //   icon: <SettingOutlined />,
-    //   label: 'Settings',
-    //   onClick: () => {
-    //     router.push('/settings');
-    //     setMobileMenuOpen(false);
-    //   }
-    // }
-    // ,
-    // {
-    //   type: 'divider',
-    // },
-    // {
-    //   key: 'darkmode',
-    //   icon: darkMode ? <SunOutlined /> : <MoonOutlined />,
-    //   label: (
-    //     <div className="flex items-center justify-between">
-    //       <span>Dark Mode</span>
-    //       <Switch
-    //         checked={darkMode}
-    //         onChange={toggleDarkMode}
-    //         size="small"
-    //         onClick={(e) => e.stopPropagation()}
-    //       />
-    //     </div>
-    //   ),
-    // },
-    // {
-    //   type: 'divider',
-    // },
     {
       key: 'logout',
       icon: <LogoutOutlined />,

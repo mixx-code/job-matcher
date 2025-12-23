@@ -579,39 +579,52 @@ const CVAnalysisComponent = () => {
                 }),
             });
 
-            const data = await response.json();
-            console.log("data analisis cv: ", data);
-            saveCvAnalysisToSupabase(data, String(user_id));
-            setDataCvAnalysis(data);
+        const data = await response.json();
+        console.log("data analisis cv: ", data);
+        saveCvAnalysisToSupabase(data, String(user_id));
+        setDataCvAnalysis(data);
 
-            const analisisCv = await getUserCvAnalyses(String(user_id));
-            console.log("analisisCv find job: ", analisisCv.data);
+        const analisisCv = await getUserCvAnalyses(String(user_id));
+        console.log("analisisCv find job: ", analisisCv);
 
-            //job rekomendasi
-            const findJobs = await fetch('/api/rekomendasi-jobs', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    hasilAnalisis: analisisCv.data[0].analysis_data,
-                    listJobs: jobsIndo
-                }),
-            });
+        // PERBAIKAN DI SINI: Tambahkan pengecekan sebelum mengakses data
+        if (analisisCv.success && analisisCv.data && analisisCv.data.length > 0) {
+            const analysisData = analisisCv.data[0];
 
-            const jobsResult = await findJobs.json();
-            console.log('Jobs found:', jobsResult);
-            localStorage.setItem('jobs', JSON.stringify(jobsResult.matched_jobs));
+            // Cek apakah analysisData memiliki analysis_data
+            if (analysisData && analysisData.analysis_data) {
+                //job rekomendasi
+                const findJobs = await fetch('/api/rekomendasi-jobs', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        hasilAnalisis: analysisData.analysis_data,
+                        listJobs: jobsIndo
+                    }),
+                });
 
+                const jobsResult = await findJobs.json();
+                console.log('Jobs found:', jobsResult);
+                if (jobsResult.matched_jobs) {
+                    localStorage.setItem('jobs', JSON.stringify(jobsResult.matched_jobs));
+                }
+            } else {
+                console.warn('analysis_data tidak ditemukan di response');
+            }
+        } else {
+            console.warn('Tidak ada data analisis CV yang ditemukan');
+        }
 
-
-        } catch (error) {
-            console.error('Error analyzing CV:', error);
+    } catch (error) {
+        console.error('Error analyzing CV:', error);
+        // Tambahkan pesan error untuk user
+        message.error('Gagal menganalisis CV. Silakan coba lagi.');
         } finally {
             setLoading(false);
         }
     }
-
     // const handleSend = async (alert: Alert) => {
     //   console.log('Send alert:', alert);
 
