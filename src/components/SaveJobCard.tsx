@@ -19,6 +19,30 @@ const SaveJobCard: React.FC<SaveJobCardProps> = ({ savedJob, onDelete, onUpdateS
     }
   };
 
+  // Fungsi untuk mendapatkan status berikutnya
+  const getNextStatus = (currentStatus: SavedJob['status']): SavedJob['status'] => {
+    switch (currentStatus) {
+      case 'saved': return 'applied';
+      case 'applied': return 'interviewed';
+      case 'interviewed': return 'offered';
+      case 'offered': return 'saved'; // Kembali ke saved setelah offered
+      case 'rejected': return 'saved'; // Kembali ke saved setelah rejected
+      default: return 'saved';
+    }
+  };
+
+  // Fungsi untuk mendapatkan teks tombol update status
+  const getUpdateButtonText = (currentStatus: SavedJob['status']): string => {
+    switch (currentStatus) {
+      case 'saved': return 'Mark as Applied';
+      case 'applied': return 'Mark as Interviewed';
+      case 'interviewed': return 'Mark as Offered';
+      case 'offered': return 'Mark as Saved';
+      case 'rejected': return 'Mark as Saved';
+      default: return 'Update Status';
+    }
+  };
+
   return (
     <div className="bg-white shadow rounded-lg p-4 mb-4">
       <div className="flex justify-between items-start">
@@ -30,7 +54,7 @@ const SaveJobCard: React.FC<SaveJobCardProps> = ({ savedJob, onDelete, onUpdateS
               </a>
             </h3>
             <span className={`ml-2 px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(savedJob.status)}`}>
-              {savedJob.status}
+              {savedJob.status.charAt(0).toUpperCase() + savedJob.status.slice(1)}
             </span>
           </div>
           
@@ -38,9 +62,11 @@ const SaveJobCard: React.FC<SaveJobCardProps> = ({ savedJob, onDelete, onUpdateS
             <p className="text-sm text-gray-600">
               <span className="font-medium">Company:</span> {savedJob.company}
             </p>
-            <p className="text-sm text-gray-600">
-              <span className="font-medium">Location:</span> {savedJob.location}
-            </p>
+            {savedJob.location && (
+              <p className="text-sm text-gray-600">
+                <span className="font-medium">Location:</span> {savedJob.location}
+              </p>
+            )}
             {savedJob.salary_range && (
               <p className="text-sm text-gray-600">
                 <span className="font-medium">Salary:</span> {savedJob.salary_range}
@@ -58,18 +84,14 @@ const SaveJobCard: React.FC<SaveJobCardProps> = ({ savedJob, onDelete, onUpdateS
         
         <div className="ml-4 flex flex-col space-y-2">
           <button
-            onClick={() => onUpdateStatus(savedJob.id!, 
-              savedJob.status === 'saved' ? 'applied' : 
-              savedJob.status === 'applied' ? 'interviewed' :
-              savedJob.status === 'interviewed' ? 'offered' : 'saved'
-            )}
-            className="px-3 py-1 text-sm bg-blue-100 text-blue-700 rounded-md hover:bg-blue-200"
+            onClick={() => onUpdateStatus(savedJob.id, getNextStatus(savedJob.status))}
+            className="px-3 py-1 text-sm bg-blue-100 text-blue-700 rounded-md hover:bg-blue-200 transition-colors"
           >
-            Update Status
+            {getUpdateButtonText(savedJob.status)}
           </button>
           <button
-            onClick={() => onDelete(savedJob.id!)}
-            className="px-3 py-1 text-sm bg-red-100 text-red-700 rounded-md hover:bg-red-200"
+            onClick={() => onDelete(savedJob.id)}
+            className="px-3 py-1 text-sm bg-red-100 text-red-700 rounded-md hover:bg-red-200 transition-colors"
           >
             Delete
           </button>

@@ -21,3 +21,28 @@ export interface SaveJob {
   created_at: string;
   updated_at: string;
 }
+
+// Tambahkan tipe SavedJob untuk SaveJobCard
+export interface SavedJob {
+  id: number; // Berubah dari string ke number karena SaveJobCard menggunakan number
+  user_id: string;
+  job_url: string;
+  job_title: string;
+  company: string;
+  location?: string;
+  salary_range?: string;
+  status: 'saved' | 'applied' | 'interviewed' | 'offered' | 'rejected';
+  saved_at: string;
+}
+
+// Atau jika Anda ingin SaveJobCard menggunakan SaveJob, buat adapter type:
+export interface SaveJobCardData {
+  id: number;
+  job_url: string;
+  job_title: string;
+  company: string;
+  location?: string;
+  salary_range?: string;
+  status: 'saved' | 'applied' | 'interviewed' | 'offered' | 'rejected';
+  saved_at: string;
+}
