@@ -306,7 +306,7 @@ const JobCardAll: React.FC<JobCardAllProps> = ({ job }) => {
               flexShrink: 0,
             }}
           >
-            <ProgressCircle score={Number(job.match_score)} />
+            {/* <ProgressCircle score={Number(job.match_score)} /> */}
           </div>
         )}
       </div>

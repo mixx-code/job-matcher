@@ -173,11 +173,11 @@ export default function SavedJobsPage() {
           : job
       ));
 
-      message.success(`Status updated to ${status}`);
+      // message.success(`Status updated to ${status}`);
 
     } catch (error) {
       console.error('Error updating status:', error);
-      message.error('Failed to update status');
+      // message.error('Failed to update status');
     }
   };
 

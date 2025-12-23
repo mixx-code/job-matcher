@@ -3,14 +3,20 @@ import { ReactNode, useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabaseClient';
+import type { User } from '@supabase/supabase-js';
 
 interface LayoutProps {
   children: ReactNode;
 }
 
+// Type untuk props Icon
+interface IconProps {
+  className?: string;
+}
+
 export default function Layout({ children }: LayoutProps) {
   const router = useRouter();
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -43,29 +49,29 @@ export default function Layout({ children }: LayoutProps) {
 
   const handleSignOut = async () => {
     try {
-        // 1. Sign out dari Supabase
-        const { error } = await supabase.auth.signOut()
-  
-        if (error) {
-          throw error
-        }
-  
-        // 3. Close mobile menu jika terbuka
-        setMobileMenuOpen(false)
-  
-        // 4. Redirect ke halaman login/home
-        router.push('/login') // atau '/auth/login' sesuai routing Anda
-  
-        // 5. Optional: Clear localStorage/sessionStorage terkait auth
-        localStorage.removeItem('supabase.auth.token')
-        sessionStorage.removeItem('supabase.auth.token')
-        localStorage.clear()
-        sessionStorage.clear()
-  
-      } catch (error) {
-        console.error('Error logging out:', error)
-        router.push('/login')
+      // 1. Sign out dari Supabase
+      const { error } = await supabase.auth.signOut();
+
+      if (error) {
+        throw error;
       }
+
+      // 3. Close mobile menu jika terbuka
+      setMobileMenuOpen(false);
+
+      // 4. Redirect ke halaman login/home
+      router.push('/login');
+
+      // 5. Optional: Clear localStorage/sessionStorage terkait auth
+      localStorage.removeItem('supabase.auth.token');
+      sessionStorage.removeItem('supabase.auth.token');
+      localStorage.clear();
+      sessionStorage.clear();
+
+    } catch (error) {
+      console.error('Error logging out:', error);
+      router.push('/login');
+    }
   };
 
   const isActive = (path: string) => {
@@ -87,6 +93,18 @@ export default function Layout({ children }: LayoutProps) {
     );
   }
 
+  // Komponen Icon SVG
+  const Icon = ({ className, d }: IconProps & { d: string }) => (
+    <svg
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+    >
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={d} />
+    </svg>
+  );
+
   return (
     <div className="min-h-screen bg-gray-50 relative">
       {/* Navigation Bar */}
@@ -103,34 +121,23 @@ export default function Layout({ children }: LayoutProps) {
               
               {/* Desktop Navigation */}
               <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
-                {navigation.map((item) => {
-                  const Icon = (props: any) => (
-                    <svg
+                {navigation.map((item) => (
+                  <Link
+                    key={item.name}
+                    href={item.href}
+                    className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium ${
+                      isActive(item.href)
+                        ? 'border-blue-500 text-gray-900'
+                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    }`}
+                  >
+                    <Icon 
                       className={`w-4 h-4 mr-2 ${isActive(item.href) ? 'text-blue-500' : 'text-gray-400'}`}
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                      {...props}
-                    >
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={item.icon} />
-                    </svg>
-                  );
-                  
-                  return (
-                    <Link
-                      key={item.name}
-                      href={item.href}
-                      className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium ${
-                        isActive(item.href)
-                          ? 'border-blue-500 text-gray-900'
-                          : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                      }`}
-                    >
-                      <Icon />
-                      {item.name}
-                    </Link>
-                  );
-                })}
+                      d={item.icon}
+                    />
+                    {item.name}
+                  </Link>
+                ))}
               </div>
             </div>
 
@@ -146,7 +153,7 @@ export default function Layout({ children }: LayoutProps) {
                       </div>
                     </div>
                     
-                    <div className="relative" x-data="{ open: false }">
+                    <div className="relative">
                       <button
                         onClick={handleSignOut}
                         className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
@@ -195,35 +202,24 @@ export default function Layout({ children }: LayoutProps) {
         {mobileMenuOpen && (
           <div className="sm:hidden">
             <div className="pt-2 pb-3 space-y-1">
-              {navigation.map((item) => {
-                const Icon = (props: any) => (
-                  <svg
+              {navigation.map((item) => (
+                <Link
+                  key={item.name}
+                  href={item.href}
+                  className={`flex items-center pl-3 pr-4 py-2 border-l-4 text-base font-medium ${
+                    isActive(item.href)
+                      ? 'bg-blue-50 border-blue-500 text-blue-700'
+                      : 'border-transparent text-gray-600 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-800'
+                  }`}
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  <Icon 
                     className={`w-5 h-5 mr-3 ${isActive(item.href) ? 'text-blue-500' : 'text-gray-400'}`}
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                    {...props}
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={item.icon} />
-                  </svg>
-                );
-                
-                return (
-                  <Link
-                    key={item.name}
-                    href={item.href}
-                    className={`flex items-center pl-3 pr-4 py-2 border-l-4 text-base font-medium ${
-                      isActive(item.href)
-                        ? 'bg-blue-50 border-blue-500 text-blue-700'
-                        : 'border-transparent text-gray-600 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-800'
-                    }`}
-                    onClick={() => setMobileMenuOpen(false)}
-                  >
-                    <Icon />
-                    {item.name}
-                  </Link>
-                );
-              })}
+                    d={item.icon}
+                  />
+                  {item.name}
+                </Link>
+              ))}
             </div>
             
             {/* Mobile user menu */}

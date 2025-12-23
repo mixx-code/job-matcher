@@ -161,11 +161,11 @@ const handleSubmit = async (e: React.FormEvent) => {
   try {
     // Panggil parent onSubmit dengan formData
     await onSubmit(formData);
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error in form submission:', error);
     setErrors({
       ...errors,
-      notificationTarget: error.message || 'Failed to submit form'
+      notificationTarget: 'Failed to submit form'
     });
   }
 };
@@ -563,7 +563,7 @@ const handleSubmit = async (e: React.FormEvent) => {
             </label>
           </div>
           <p className="mt-1 text-sm text-gray-500">
-            When inactive, you won't receive notifications from this alert
+            When inactive, you won&quot;t receive notifications from this alert
           </p>
         </div>
       )}

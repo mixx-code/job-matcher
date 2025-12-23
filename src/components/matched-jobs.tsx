@@ -1,21 +1,51 @@
-import { mockData } from '@/data/mockData';
 import MatchedJobsList from './MatchedJobsList';
 import { Button, Progress, Tag, Tooltip } from 'antd';
 import { useEffect, useState } from 'react';
 import { Badge, Bot } from 'lucide-react';
 import { CalendarOutlined, CheckCircleOutlined, ClockCircleOutlined, CloseCircleOutlined, DashboardOutlined, EnvironmentOutlined, FilterOutlined, FireOutlined, InfoCircleOutlined, RocketOutlined, SearchOutlined, StarOutlined, SyncOutlined, ThunderboltOutlined, TrophyOutlined } from '@ant-design/icons';
-import {
-  FilteringStats,
-  MatchedJob,
-} from '@/types/jobTypes';
 import { supabase } from '@/lib/supabaseClient';
-import AllJobsList from './AllJobsList';
 import { JobIndo } from '@/types/job-indo';
+import type { CSSProperties } from 'react';
+
+// Definisikan tipe-tipe yang dibutuhkan
+interface MatchedJob {
+  id: string;
+  title: string;
+  company: string;
+  location?: string;
+  match_score: number;
+  skills?: string[];
+  salary_range?: string;
+  description?: string;
+  url?: string;
+}
+
+interface JobForList {
+  id: string;
+  job_url: string;
+  job_title: string;
+  company: string;
+  location: string;
+  job_description: string;
+  is_remote: boolean;
+  salary_range: string;
+  match_score: number;
+  match_reasons: string[];
+  missing_skills: string[];
+  recommended_actions: string[];
+}
+
+interface FilteringStats {
+  total_processed?: number;
+  matched_count?: number;
+  match_rate?: number;
+  processing_time?: number;
+}
 
 interface MatchedJobsPageProps {
-  dataJobApi: MatchedJob[];
+  dataJobApi: MatchedJob[] | { matched_jobs: MatchedJob[] };
   dataJobsIndo?: JobIndo[];
-  user_id: string
+  user_id: string;
 }
 
 const MatchedJobsPage: React.FC<MatchedJobsPageProps> = ({ dataJobApi, dataJobsIndo, user_id }) => {
@@ -23,30 +53,36 @@ const MatchedJobsPage: React.FC<MatchedJobsPageProps> = ({ dataJobApi, dataJobsI
   const [dataRekomendasiJobs, setDataRekomendasiJobs] = useState<MatchedJob[]>([]);
 
   console.log("dataRekomendasiJobs: ", dataRekomendasiJobs);
-
-
   console.log("user_id: ", user_id);
-
-
-  console.log("dataJobApi: ", dataJobApi.dataJobApi);
-
-  const listJobs = dataRekomendasiJobs.matched_jobs || [];
-  console.log("listJobs: ", listJobs);
   console.log("dataJobApi: ", dataJobApi);
-  // Cast data ke tipe yang sesuai
-  // const jobs = mockData.matched_jobs as MatchedJob[];
-  // const filteringStats = dataRekomendasiJobs.filtering_stats as FilteringStats || [];
+
+  // Handle dataJobApi yang bisa berupa array atau objek
+  let listJobs: MatchedJob[] = [];
+
+  if (Array.isArray(dataJobApi)) {
+    // Jika dataJobApi adalah array langsung
+    listJobs = dataRekomendasiJobs.length > 0 ? dataRekomendasiJobs : dataJobApi;
+  } else if (dataJobApi && 'matched_jobs' in dataJobApi) {
+    // Jika dataJobApi adalah objek dengan property matched_jobs
+    listJobs = dataRekomendasiJobs.length > 0 ? dataRekomendasiJobs : dataJobApi.matched_jobs || [];
+  }
+
+  console.log("listJobs: ", listJobs);
 
   useEffect(() => {
     if (dataRekomendasiJobs.length === 0) {
       const jobs = localStorage.getItem('jobs');
       console.log("jobs local: ", jobs);
       if (jobs) {
-        setDataRekomendasiJobs(JSON.parse(jobs));
+        try {
+          const parsedJobs = JSON.parse(jobs);
+          setDataRekomendasiJobs(parsedJobs);
+        } catch (error) {
+          console.error("Error parsing jobs from localStorage:", error);
+        }
       }
     }
-  }, [dataRekomendasiJobs]);
-
+  }, [dataRekomendasiJobs.length]);
 
   const getUserCvAnalyses = async (userId: string) => {
     try {
@@ -63,7 +99,6 @@ const MatchedJobsPage: React.FC<MatchedJobsPageProps> = ({ dataJobApi, dataJobsI
 
       if (error) {
         console.error('Error mengambil data dari Supabase:', error);
-        // Jangan throw error, kembalikan success: false
         return {
           success: false,
           message: error.message || 'Gagal mengambil data analisis CV',
@@ -74,11 +109,8 @@ const MatchedJobsPage: React.FC<MatchedJobsPageProps> = ({ dataJobApi, dataJobsI
 
       console.log('Data analisis CV ditemukan:', data);
 
-      // Cek apakah ada data
       if (data && data.length > 0 && data[0]) {
         console.log('Mengatur data analisis CV ke state');
-      // setDataCvAnalysis(data[0].analysis_data);
-
         return {
           success: true,
           data: data[0].analysis_data,
@@ -86,9 +118,6 @@ const MatchedJobsPage: React.FC<MatchedJobsPageProps> = ({ dataJobApi, dataJobsI
         };
       } else {
         console.log('Tidak ada data analisis CV ditemukan untuk user:', userId);
-        // Set state ke null atau empty object
-        // setDataCvAnalysis(null);
-
         return {
           success: true,
           data: [],
@@ -97,11 +126,12 @@ const MatchedJobsPage: React.FC<MatchedJobsPageProps> = ({ dataJobApi, dataJobsI
         };
       }
 
-    } catch (error) {
+    } catch (error) { // Type assertion untuk error
+      const errorMessage = error instanceof Error ? error.message : 'Gagal mengambil data analisis CV';
       console.error('Error dalam getUserCvAnalyses:', error);
       return {
         success: false,
-        message: error.message || 'Gagal mengambil data analisis CV',
+        message: errorMessage,
         error: error,
         data: []
       };
@@ -114,9 +144,11 @@ const MatchedJobsPage: React.FC<MatchedJobsPageProps> = ({ dataJobApi, dataJobsI
 
       const analisisCv = await getUserCvAnalyses(String(user_id));
       console.log("analisisCv: ", analisisCv.data);
-      // console.log("skill: ", analisisCv.data.skill);
-      console.log("dataJobsIndo: ", dataJobsIndo);
 
+      if (!analisisCv.success || !analisisCv.data) {
+        console.error("Tidak ada data analisis CV yang valid");
+        return;
+      }
 
       const findJobs = await fetch('/api/rekomendasi-jobs', {
         method: 'POST',
@@ -128,18 +160,53 @@ const MatchedJobsPage: React.FC<MatchedJobsPageProps> = ({ dataJobApi, dataJobsI
           listJobs: dataJobsIndo
         }),
       });
+
+      if (!findJobs.ok) {
+        throw new Error(`HTTP error! status: ${findJobs.status}`);
+      }
+
       const jobs = await findJobs.json();
       setDataRekomendasiJobs(jobs);
       localStorage.setItem('jobs', JSON.stringify(jobs));
-      console.log(
-        'Jobs found:',
-        jobs
-      )
+      console.log('Jobs found:', jobs);
+
     } catch (error) {
       console.error('Error searching jobs:', error);
     } finally {
       setLoading(false);
     }
+  };
+
+  // Fungsi untuk mengonversi MatchedJob ke JobForList
+  const convertToJobFormat = (matchedJobs: MatchedJob[]): JobForList[] => {
+    return matchedJobs.map(job => ({
+      id: job.id,
+      job_url: job.url || '#',
+      job_title: job.title || 'Untitled Position',
+      company: job.company,
+      location: job.location || 'Location not specified',
+      job_description: job.description || 'No job description available.',
+      is_remote: false,
+      salary_range: job.salary_range || 'Salary not disclosed',
+      match_score: job.match_score,
+      match_reasons: job.skills
+        ? [`Skills match: ${job.skills.slice(0, 3).join(', ')}${job.skills.length > 3 ? '...' : ''}`]
+        : ['Good overall match'],
+      missing_skills: [],
+      recommended_actions: ['Review full job description', 'Prepare tailored resume']
+    }));
+  };
+
+  // Fungsi untuk mendapatkan style button
+  const getButtonStyle = (): CSSProperties | undefined => {
+    if (loading) {
+      return {
+        background: "#1778ff",
+        borderColor: "#1778ff",
+        color: "#fff",
+      };
+    }
+    return undefined;
   };
 
   return (
@@ -149,21 +216,16 @@ const MatchedJobsPage: React.FC<MatchedJobsPageProps> = ({ dataJobApi, dataJobsI
         <Button
           type="primary"
           icon={<Bot />}
-          loading={loading && { icon: <SyncOutlined spin /> }}
+          loading={loading}
           disabled={loading}
-          style={
-            loading && {
-              background: "#1778ff",
-              borderColor: "#1778ff",
-              color: "#fff",
-            }
-          }
+          style={getButtonStyle()}
           onClick={handleSearchJobs}
           className="flex items-center gap-2"
         >
           {loading ? "Searching Jobs..." : "Find Matching Jobs"}
         </Button>
       </div>
+
       {/* Header Section */}
       <div className="w-full mb-6 rounded-xl bg-gradient-to-br from-blue-600 to-purple-700 text-white p-6 shadow-lg">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
@@ -185,16 +247,32 @@ const MatchedJobsPage: React.FC<MatchedJobsPageProps> = ({ dataJobApi, dataJobsI
 
       {/* Main Content Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 w-full">
-        {/* Left Column - Stats and Metadata */}
-
-
         {/* Right Column - Job Listings */}
         <div className="lg:col-span-3">
           <div className="bg-white rounded-xl shadow-md overflow-hidden">
             {/* Job List Header */}
             {listJobs.length === 0 ? (
-              ""
+              <div className="p-8 text-center">
+                <div className="text-gray-400 mb-4">
+                  <SearchOutlined style={{ fontSize: '48px' }} />
+                </div>
+                <h3 className="text-xl font-semibold text-gray-700 mb-2">
+                  No Jobs Found
+                </h3>
+                <p className="text-gray-500 mb-6">
+                  Click &quot;Find Matching Jobs&quot; to start searching for opportunities
+                </p>
+                <Button
+                  type="primary"
+                  icon={<Bot />}
+                  onClick={handleSearchJobs}
+                  loading={loading}
+                >
+                  Find Matching Jobs
+                </Button>
+              </div>
             ) : (
+                <>
                 <div className="bg-gradient-to-r from-blue-50 to-purple-50 p-4 sm:p-6 border-b border-gray-200">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div className="flex-1">
@@ -202,7 +280,7 @@ const MatchedJobsPage: React.FC<MatchedJobsPageProps> = ({ dataJobApi, dataJobsI
                         <h2 className="text-lg sm:text-xl font-bold text-gray-800 flex items-center gap-2">
                           <CheckCircleOutlined className="text-green-600 text-base sm:text-lg" />
                           <span className="whitespace-nowrap">Matched Job Opportunities</span>
-                      </h2>
+                          </h2>
                         <div className="sm:hidden">
                           <div className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full font-semibold text-sm inline-block">
                             {listJobs.length} Jobs
@@ -230,20 +308,19 @@ const MatchedJobsPage: React.FC<MatchedJobsPageProps> = ({ dataJobApi, dataJobsI
                       <span className="hidden xs:inline">Real-time</span>
                       <span className="xs:hidden">Live</span>
                     </Tag>
-                  <Tag color="purple" icon={<StarOutlined />} className="text-xs sm:text-sm">
-                    <span className="hidden xs:inline">Personalized</span>
-                    <span className="xs:hidden">Custom</span>
-                  </Tag>
-                </div>
-              </div>
+                      <Tag color="purple" icon={<StarOutlined />} className="text-xs sm:text-sm">
+                        <span className="hidden xs:inline">Personalized</span>
+                        <span className="xs:hidden">Custom</span>
+                      </Tag>
+                    </div>
+                  </div>
+
+                  {/* Job List Content - INI YANG DIPERBAIKI */}
+                  <div className="p-6">
+                    <MatchedJobsList jobs={convertToJobFormat(listJobs)} />
+                  </div>
+              </>
             )}
-
-            {/* Job List Content */}
-            <div className="p-6">
-              <MatchedJobsList jobs={listJobs} />
-            </div>
-
-            {/* Empty State */}
           </div>
         </div>
       </div>

@@ -1,4 +1,3 @@
-/* eslint-disable react-hooks/static-components */
 import React, { useState, useEffect } from 'react';
 import {
     Card,
@@ -253,7 +252,7 @@ const JobCard: React.FC<JobCardProps> = ({ job }) => {
                     <Space direction="vertical" size="small" style={{ width: '100%' }}>
                         <Space>
                             <CheckCircleOutlined style={{ color: '#52c41a' }} />
-                            <Text strong>Why You're a Good Match</Text>
+                            <Text strong>Why You&quot;re a Good Match</Text>
                         </Space>
 
                         <List

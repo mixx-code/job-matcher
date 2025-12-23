@@ -1,7 +1,32 @@
 import React from 'react';
 import JobCard from './JobCard';
 
-const MatchedJobsList = ({ jobs }) => {
+// Di MatchedJobsList.tsx
+interface Job {
+  id: string; // Tambahkan ini
+  job_url: string;
+  job_title: string;
+  company: string;
+  location: string;
+  job_description: string;
+  is_remote: boolean;
+  salary_range: string;
+  match_score: number;
+  match_reasons: string[];
+  missing_skills: string[];
+  recommended_actions: string[];
+  // Tambahkan properti opsional lainnya
+  title?: string; // Untuk kompatibilitas
+  description?: string; // Untuk kompatibilitas
+  url?: string; // Untuk kompatibilitas
+  skills?: string[]; // Untuk kompatibilitas
+}
+
+interface MatchedJobsListProps {
+  jobs: Job[];
+}
+
+const MatchedJobsList: React.FC<MatchedJobsListProps> = ({ jobs }) => {
   if (!jobs || jobs.length === 0) {
     return (
       <div className="bg-white rounded-xl shadow p-8 text-center">

@@ -68,19 +68,21 @@ export default function CardJobs({ job, onSaveSuccess, onSaveError }: JobCardPro
       
       // Show success message
       alert('✅ Job saved successfully! You can view it in your Saved Jobs page.');
-    } catch (error: any) {
+    } catch (error: unknown) {
       setIsSaved(false);
       
-      if (error.message === 'Job already saved') {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+
+      if (errorMessage === 'Job already saved') {
         alert('ℹ️ This job has already been saved.');
         setIsSaved(true);
-      } else if (error.message === 'Please login to save jobs') {
+      } else if (errorMessage === 'Please login to save jobs') {
         alert('🔒 Please login to save jobs');
-        onSaveError?.(error);
+        onSaveError?.(error instanceof Error ? error : new Error(String(error)));
       } else {
         console.error('Error saving job:', error);
         alert('❌ Failed to save job. Please try again.');
-        onSaveError?.(error);
+        onSaveError?.(error instanceof Error ? error : new Error(String(error)));
       }
     } finally {
       setIsSaving(false);
