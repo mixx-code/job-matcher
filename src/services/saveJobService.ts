@@ -1,21 +1,13 @@
 // src/services/saveJobService.ts
 
 import { supabase } from '@/lib/supabaseClient';
+import { Database } from '@/types/supabase';
 import { Job } from '../types/job';
-import { SaveJob } from '../types/saveJob';
 
-interface SaveJobData {
-  job_data: Job;
-  job_id: string;
-  job_title: string;
-  company_name?: string;
-  location?: string;
-  category?: string;
-  salary_min?: number;
-  salary_max?: number;
-  contract_type?: string;
-  contract_time?: string;
-}
+// Gunakan tipe dari Supabase
+type SaveJob = Database['public']['Tables']['save_jobs']['Row'];
+type SaveJobInsert = Database['public']['Tables']['save_jobs']['Insert'];
+type SaveJobUpdate = Database['public']['Tables']['save_jobs']['Update'];
 
 class SaveJobService {
   // Save job ke database
@@ -33,31 +25,29 @@ class SaveJobService {
         throw new Error('Please login to save jobs');
       }
 
-      // Prepare job data
-      const saveJobData: SaveJobData = {
-        job_data: job,
+      // Prepare job data sesuai dengan struktur save_jobs table
+      const saveJobData: SaveJobInsert = {
+        user_id: user.id,
         job_id: job.id.toString(),
-        job_title: job.title,
-        company_name: job.company || undefined,
-        location: job.location || undefined,
-        category: job.category || undefined,
-        salary_min: job.salary_min || undefined,
-        salary_max: job.salary_max || undefined,
-        contract_type: job.contract_type || undefined,
-        contract_time: job.contract_time || undefined,
+        job_title: job.title || 'Untitled Job',
+        job_data: JSON.parse(JSON.stringify(job)), // Convert to plain object compatible with Json type
+        company_name: job.company || null,
+        location: job.location || null,
+        category: job.category || null,
+        salary_min: job.salary_min || null,
+        salary_max: job.salary_max || null,
+        contract_type: job.contract_type || null,
+        contract_time: job.contract_time || null,
+        is_active: true,
+        notes: null,
+        tags: null,
+        priority: 3
       };
 
       // Insert to database
       const { data, error } = await supabase
         .from('save_jobs')
-        .insert({
-          user_id: user.id,
-          ...saveJobData,
-          is_active: true,
-          notes: '',
-          tags: [],
-          priority: 3
-        })
+        .insert(saveJobData)
         .select()
         .single();
 
@@ -147,7 +137,7 @@ class SaveJobService {
   }
 
   // Update saved job fields
-  async updateSavedJob(jobId: string, updates: Partial<SaveJob>): Promise<SaveJob | null> {
+  async updateSavedJob(jobId: string, updates: SaveJobUpdate): Promise<SaveJob | null> {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       
@@ -184,7 +174,7 @@ class SaveJobService {
   }
 
   // Update priority
-  async updatePriority(jobId: string, priority: 1 | 2 | 3): Promise<SaveJob | null> {
+  async updatePriority(jobId: string, priority: number): Promise<SaveJob | null> {
     return this.updateSavedJob(jobId, { priority });
   }
 
@@ -195,3 +185,6 @@ class SaveJobService {
 }
 
 export const saveJobService = new SaveJobService();
+
+// Export tipe untuk digunakan di tempat lain
+export type { SaveJob, SaveJobInsert, SaveJobUpdate };

@@ -23,16 +23,17 @@ export interface SaveJob {
 }
 
 // Tambahkan tipe SavedJob untuk SaveJobCard
+// src/types/saveJob.ts
 export interface SavedJob {
-  id: number; // Berubah dari string ke number karena SaveJobCard menggunakan number
+  id?: number;
   user_id: string;
-  job_url: string;
   job_title: string;
   company: string;
-  location?: string;
-  salary_range?: string;
-  status: 'saved' | 'applied' | 'interviewed' | 'offered' | 'rejected';
-  saved_at: string;
+  location: string | null;
+  salary_range: string | null;
+  job_url: string;
+  status: string | null;
+  saved_at: string | null;
 }
 
 // Atau jika Anda ingin SaveJobCard menggunakan SaveJob, buat adapter type:

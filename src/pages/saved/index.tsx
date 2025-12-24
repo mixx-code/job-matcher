@@ -114,15 +114,15 @@ export default function SavedJobsPage() {
     switch (sort) {
       case 'newest':
         filtered.sort((a, b) => {
-          const dateA = a.saved_at || a.created_at || '0';
-          const dateB = b.saved_at || b.created_at || '0';
+          const dateA = a.saved_at || '0';
+          const dateB = b.saved_at || '0';
           return new Date(dateB).getTime() - new Date(dateA).getTime();
         });
         break;
       case 'oldest':
         filtered.sort((a, b) => {
-          const dateA = a.saved_at || a.created_at || '0';
-          const dateB = b.saved_at || b.created_at || '0';
+          const dateA = a.saved_at || '0';
+          const dateB = b.saved_at || '0';
           return new Date(dateA).getTime() - new Date(dateB).getTime();
         });
         break;
@@ -159,8 +159,7 @@ export default function SavedJobsPage() {
       const { error } = await supabase
         .from('saved_jobs')
         .update({
-          status: status,
-          updated_at: new Date().toISOString()
+          status: status
         })
         .eq('id', jobId);
 
@@ -169,15 +168,12 @@ export default function SavedJobsPage() {
       // Update local state
       setSavedJobs(prev => prev.map(job =>
         job.id === jobId
-          ? { ...job, status, updated_at: new Date().toISOString() }
+          ? { ...job, status }
           : job
       ));
 
-      // message.success(`Status updated to ${status}`);
-
     } catch (error) {
       console.error('Error updating status:', error);
-      // message.error('Failed to update status');
     }
   };
 
@@ -375,7 +371,7 @@ export default function SavedJobsPage() {
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                 </svg>
                                 <span className="text-xs sm:text-sm">
-                                  Saved on {new Date(savedJob.saved_at || savedJob.created_at).toLocaleDateString()}
+                                  Saved on {savedJob.saved_at ? new Date(savedJob.saved_at).toLocaleDateString() : 'N/A'}
                                 </span>
                               </div>
                             </div>

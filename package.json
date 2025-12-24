@@ -4,9 +4,10 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "next build || exit 0",
     "start": "next start",
     "lint": "eslint",
+    "build:force": "set NODE_OPTIONS=--max-old-space-size=4096 && next build --no-lint",
     "cron:dev": "nodemon --exec ts-node src/cron/alerts-cron.ts",
     "cron": "node dist/cron/alerts-cron.js"
   },

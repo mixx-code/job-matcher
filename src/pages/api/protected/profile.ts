@@ -37,7 +37,7 @@ export default async function handler(
 
             const { data, error } = await supabase
                 .from('profiles')
-                .update({ username, full_name, updated_at: new Date() })
+                .update({ username, full_name, updated_at: new Date().toISOString() })
                 .eq('id', user.id)
                 .select()
 

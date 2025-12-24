@@ -1,14 +1,20 @@
+import { User } from '@supabase/supabase-js'; // Import tipe User dari supabase
 import { supabase } from "./supabaseClient";
 
 export interface UserProfile {
   id: string;
   email?: string;
-  // tambahkan field lain dari profiles table jika ada
-  full_name?: string;
-  avatar_url?: string;
+  full_name?: string | null;
+  avatar_url?: string | null;
   created_at?: string;
   updated_at?: string;
 }
+
+// Tipe untuk user dengan profile
+export type UserWithProfile = User & {
+  full_name?: string | null;
+  avatar_url?: string | null;
+};
 
 export async function getCurrentSession() {
   try {
@@ -23,7 +29,7 @@ export async function getCurrentSession() {
   }
 }
 
-export async function getCurrentUserWithProfile() {
+export async function getCurrentUserWithProfile(): Promise<UserWithProfile | null> {
   try {
     const session = await getCurrentSession();
     
@@ -31,11 +37,11 @@ export async function getCurrentUserWithProfile() {
       return null;
     }
     
-    let userWithProfile = {
+    // Buat objek user dengan tipe yang benar
+    const user: UserWithProfile = {
       ...session.user,
-      // Default values
-      full_name: '',
-      avatar_url: '',
+      full_name: null,
+      avatar_url: null,
     };
     
     // Try to fetch profile
@@ -47,17 +53,15 @@ export async function getCurrentUserWithProfile() {
         .single();
       
       if (!profileError && profile) {
-        userWithProfile = {
-          ...userWithProfile,
-          ...profile,
-        };
+        // Update dengan data profile, handle null values
+        user.full_name = profile.full_name || null;
       }
     } catch (profileError) {
       console.warn('Profiles table not found or error, using user data only:', profileError);
       // Continue with just user data
     }
     
-    return userWithProfile;
+    return user;
   } catch (error) {
     console.error('Error getting user with profile:', error);
     return null;

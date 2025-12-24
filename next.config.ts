@@ -4,9 +4,13 @@ const nextConfig: NextConfig = {
   /* config options here */
   reactCompiler: true,
   reactStrictMode: true,
-  experimental: {
-    serverComponentsExternalPackages: ['@google/generative-ai'],
-  },
+  
+  // serverComponentsExternalPackages sudah dipindahkan ke root config di Next.js 15
+  serverExternalPackages: ['@google/generative-ai', 'pdf-parse', 'mammoth', 'pdf2json', 'pdfjs-dist'],
+  
+  // Opsi untuk menghindari error build
+  // eslint dan typescript config harus di luar root object atau menggunakan cara lain
+  
   async headers() {
     return [
       {
@@ -18,6 +22,11 @@ const nextConfig: NextConfig = {
         ],
       },
     ];
+  },
+  
+  // Tambahkan ini sebagai experimental options jika diperlukan
+  experimental: {
+    // Tambahkan experimental options di sini jika ada
   },
 };
 

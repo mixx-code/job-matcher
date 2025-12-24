@@ -2,6 +2,18 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { AlertResponse } from '@/types/alert';
 import { supabase } from '@/lib/supabaseClient';
+import { SupabaseClient } from '@supabase/supabase-js';
+
+// Helper function to calculate next run time
+function calculateNextRun(frequency: 'daily' | 'weekly'): string {
+  const now = new Date();
+  if (frequency === 'daily') {
+    now.setDate(now.getDate() + 1);
+  } else if (frequency === 'weekly') {
+    now.setDate(now.getDate() + 7);
+  }
+  return now.toISOString();
+}
 
 export default async function handler(
   req: NextApiRequest,
@@ -40,12 +52,12 @@ export default async function handler(
 async function handleGetAlert(
   req: NextApiRequest,
   res: NextApiResponse<AlertResponse>,
-  supabase: any,
+  supabaseClient: SupabaseClient,
   userId: string,
   alertId: string
 ) {
   try {
-    const { data: alert, error } = await supabase
+    const { data: alert, error } = await supabaseClient
       .from('alerts')
       .select('*')
       .eq('id', alertId)
@@ -66,11 +78,11 @@ async function handleGetAlert(
       success: true,
       data: alert
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error fetching alert:', error);
     return res.status(500).json({
       success: false,
-      error: error.message
+      error: error instanceof Error ? error.message : 'Unknown error occurred'
     });
   }
 }
@@ -78,7 +90,7 @@ async function handleGetAlert(
 async function handleUpdateAlert(
   req: NextApiRequest,
   res: NextApiResponse<AlertResponse>,
-  supabase: any,
+  supabaseClient: SupabaseClient,
   userId: string,
   alertId: string
 ) {
@@ -90,7 +102,7 @@ async function handleUpdateAlert(
       updateData.next_run = calculateNextRun(updateData.frequency);
     }
 
-    const { data: alert, error } = await supabase
+    const { data: alert, error } = await supabaseClient
       .from('alerts')
       .update({
         ...updateData,
@@ -116,11 +128,11 @@ async function handleUpdateAlert(
       data: alert,
       message: 'Alert updated successfully'
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error updating alert:', error);
     return res.status(500).json({
       success: false,
-      error: error.message
+      error: error instanceof Error ? error.message : 'Unknown error occurred'
     });
   }
 }
@@ -128,12 +140,12 @@ async function handleUpdateAlert(
 async function handleDeleteAlert(
   req: NextApiRequest,
   res: NextApiResponse<AlertResponse>,
-  supabase: any,
+  supabaseClient: SupabaseClient,
   userId: string,
   alertId: string
 ) {
   try {
-    const { error } = await supabase
+    const { error } = await supabaseClient
       .from('alerts')
       .delete()
       .eq('id', alertId)
@@ -153,11 +165,11 @@ async function handleDeleteAlert(
       success: true,
       message: 'Alert deleted successfully'
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error deleting alert:', error);
     return res.status(500).json({
       success: false,
-      error: error.message
+      error: error instanceof Error ? error.message : 'Unknown error occurred'
     });
   }
 }

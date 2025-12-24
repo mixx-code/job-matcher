@@ -87,7 +87,7 @@ export default async (req: NextApiRequest, res: NextApiResponse) => {
         console.error('Error in /api/send:', error);
         res.status(500).json({
             error: 'Internal server error',
-            details: error.message
+            details: error
         });
     }
 };

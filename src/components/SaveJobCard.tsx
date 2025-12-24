@@ -1,14 +1,14 @@
-// components/SaveJobCard.tsx - Versi sederhana
+// components/SaveJobCard.tsx - Versi dengan penanganan null/undefined
 import { SavedJob } from '@/types/saveJob';
 
 interface SaveJobCardProps {
   savedJob: SavedJob;
   onDelete: (id: number) => void;
-  onUpdateStatus: (id: number, status: SavedJob['status']) => void;
+  onUpdateStatus: (id: number, status: string) => void;
 }
 
 const SaveJobCard: React.FC<SaveJobCardProps> = ({ savedJob, onDelete, onUpdateStatus }) => {
-  const getStatusColor = (status: string) => {
+  const getStatusColor = (status: string | null) => {
     switch (status) {
       case 'saved': return 'bg-blue-100 text-blue-800';
       case 'applied': return 'bg-green-100 text-green-800';
@@ -20,19 +20,19 @@ const SaveJobCard: React.FC<SaveJobCardProps> = ({ savedJob, onDelete, onUpdateS
   };
 
   // Fungsi untuk mendapatkan status berikutnya
-  const getNextStatus = (currentStatus: SavedJob['status']): SavedJob['status'] => {
+  const getNextStatus = (currentStatus: string | null): string => {
     switch (currentStatus) {
       case 'saved': return 'applied';
       case 'applied': return 'interviewed';
       case 'interviewed': return 'offered';
-      case 'offered': return 'saved'; // Kembali ke saved setelah offered
-      case 'rejected': return 'saved'; // Kembali ke saved setelah rejected
+      case 'offered': return 'saved';
+      case 'rejected': return 'saved';
       default: return 'saved';
     }
   };
 
   // Fungsi untuk mendapatkan teks tombol update status
-  const getUpdateButtonText = (currentStatus: SavedJob['status']): string => {
+  const getUpdateButtonText = (currentStatus: string | null): string => {
     switch (currentStatus) {
       case 'saved': return 'Mark as Applied';
       case 'applied': return 'Mark as Interviewed';
@@ -42,6 +42,11 @@ const SaveJobCard: React.FC<SaveJobCardProps> = ({ savedJob, onDelete, onUpdateS
       default: return 'Update Status';
     }
   };
+
+  // Handle null values
+  const status = savedJob.status || 'saved';
+  const savedDate = savedJob.saved_at ? new Date(savedJob.saved_at) : new Date();
+  const jobId = savedJob.id ?? 0;
 
   return (
     <div className="bg-white shadow rounded-lg p-4 mb-4">
@@ -53,8 +58,8 @@ const SaveJobCard: React.FC<SaveJobCardProps> = ({ savedJob, onDelete, onUpdateS
                 {savedJob.job_title}
               </a>
             </h3>
-            <span className={`ml-2 px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(savedJob.status)}`}>
-              {savedJob.status.charAt(0).toUpperCase() + savedJob.status.slice(1)}
+            <span className={`ml-2 px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(status)}`}>
+              {status.charAt(0).toUpperCase() + status.slice(1)}
             </span>
           </div>
           
@@ -78,19 +83,19 @@ const SaveJobCard: React.FC<SaveJobCardProps> = ({ savedJob, onDelete, onUpdateS
             <svg className="flex-shrink-0 mr-1 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
             </svg>
-            Saved on {new Date(savedJob.saved_at).toLocaleDateString()}
+            Saved on {savedDate.toLocaleDateString()}
           </div>
         </div>
         
         <div className="ml-4 flex flex-col space-y-2">
           <button
-            onClick={() => onUpdateStatus(savedJob.id, getNextStatus(savedJob.status))}
+            onClick={() => onUpdateStatus(jobId, getNextStatus(status))}
             className="px-3 py-1 text-sm bg-blue-100 text-blue-700 rounded-md hover:bg-blue-200 transition-colors"
           >
-            {getUpdateButtonText(savedJob.status)}
+            {getUpdateButtonText(status)}
           </button>
           <button
-            onClick={() => onDelete(savedJob.id)}
+            onClick={() => onDelete(jobId)}
             className="px-3 py-1 text-sm bg-red-100 text-red-700 rounded-md hover:bg-red-200 transition-colors"
           >
             Delete

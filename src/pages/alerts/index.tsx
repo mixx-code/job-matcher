@@ -5,18 +5,7 @@ import { Alert } from '../../types/alert';
 import AlertCard from '../../components/AlertCard';
 import Layout from '../../components/Layout';
 import { supabase } from '@/lib/supabaseClient';
-
-import {
-    FilteringStats,
-    MatchedJob,
-} from '@/types/jobTypes';
 import { getCurrentSession, getCurrentUserWithProfile } from '@/lib/getSession';
-interface MatchedJobsPageProps {
-    dataJobApi: MatchedJob[];
-  dataJobsIndo?: JobIndo[];
-    user_id: string
-}
-
 
 type FilterType = 'all' | 'active' | 'inactive';
 
@@ -26,7 +15,7 @@ export default function AlertsPage() {
   const [filter, setFilter] = useState<FilterType>('all');
   const [toggleLoading, setToggleLoading] = useState<string | null>(null);
   const [deleteLoading, setDeleteLoading] = useState<string | null>(null);
-  const [dataRekomendasiJobs, setDataRekomendasiJobs] = useState<MatchedJob[]>([]);
+  const [dataRekomendasiJobs, setDataRekomendasiJobs] = useState<[]>([]);
   const [jobsIndo, setJobsIndo] = useState([]);
   const router = useRouter();
 
@@ -71,13 +60,38 @@ export default function AlertsPage() {
         throw error;
       }
 
-      setAlerts(alertsData || []);
+      // Konversi ke tipe Alert
+      const convertedAlerts: Alert[] = (alertsData || []).map(item => ({
+        id: String(item.id),
+        name: item.name,
+        // Parse search_criteria jika berupa string, atau gunakan as-is jika sudah object
+        search_criteria: typeof item.search_criteria === 'string'
+          ? JSON.parse(item.search_criteria)
+          : (item.search_criteria || {}),
+        frequency: (item.frequency === 'daily' || item.frequency === 'weekly')
+          ? item.frequency
+          : 'daily',
+        notification_method: (item.notification_method === 'email' || item.notification_method === 'telegram')
+          ? item.notification_method
+          : 'email',
+        notification_target: item.notification_target,
+        is_active: item.is_active !== null ? item.is_active : true,
+        created_at: item.created_at || new Date().toISOString(), // Default ke timestamp sekarang
+        updated_at: item.updated_at || new Date().toISOString(), // Default ke timestamp sekarang
+        next_run: item.next_run || new Date().toISOString(), // Default ke timestamp sekarang
+        match_count: item.match_count !== null && item.match_count !== undefined ? item.match_count : 0,
+        last_sent: item.last_sent || new Date().toISOString(), // Default ke timestamp sekarang
+        user_id: item.user_id,
+      }));
+
+      setAlerts(convertedAlerts);
     } catch (error) {
       console.error('Error fetching alerts:', error);
     } finally {
       setLoading(false);
     }
   };
+
 
   const handleToggleActive = async (alertId: string, currentStatus: boolean) => {
     try {
@@ -109,7 +123,7 @@ export default function AlertsPage() {
           ? { ...alert, is_active: !currentStatus, updated_at: new Date().toISOString() }
           : alert
       ));
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error toggling alert:', error);
       alert('Failed to update alert status');
     } finally {
@@ -142,7 +156,7 @@ export default function AlertsPage() {
 
       // Remove from local state
       setAlerts(prev => prev.filter(alert => alert.id !== alertId));
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error deleting alert:', error);
       alert('Failed to delete alert');
     } finally {
@@ -153,67 +167,67 @@ export default function AlertsPage() {
   const handleEdit = (alertId: string) => {
     router.push(`/alerts/edit/${alertId}`);
   };
-      const getUserCvAnalyses = async (userId: string) => {
-        try {
-            if (!userId) {
-                throw new Error('User ID diperlukan');
-            }
+  const getUserCvAnalyses = async (userId: string) => {
+    try {
+      if (!userId) {
+        throw new Error('User ID diperlukan');
+      }
 
-            const { data, error } = await supabase
-                .from('cv_analyses')
-                .select('*')
-                .eq('user_id', userId)
-                .order('created_at', { ascending: false })
-                .limit(1);
+      const { data, error } = await supabase
+        .from('cv_analyses')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(1);
 
-            if (error) {
-                console.error('Error mengambil data dari Supabase:', error);
-                // Jangan throw error, kembalikan success: false
-                return {
-                    success: false,
-                    message: error.message || 'Gagal mengambil data analisis CV',
-                    error: error,
-                    data: []
-                };
-            }
+      if (error) {
+        console.error('Error mengambil data dari Supabase:', error);
+        // Jangan throw error, kembalikan success: false
+        return {
+          success: false,
+          message: error.message || 'Gagal mengambil data analisis CV',
+          error: error,
+          data: []
+        };
+      }
 
-            console.log('Data analisis CV ditemukan:', data);
+      console.log('Data analisis CV ditemukan:', data);
 
-            // Cek apakah ada data
-            if (data && data.length > 0 && data[0]) {
-                console.log('Mengatur data analisis CV ke state');
-                // setDataCvAnalysis(data[0].analysis_data);
+      // Cek apakah ada data
+      if (data && data.length > 0 && data[0]) {
+        console.log('Mengatur data analisis CV ke state');
+        // setDataCvAnalysis(data[0].analysis_data);
 
-                return {
-                    success: true,
-                    data: data[0].analysis_data,
-                    hasData: true
-                };
-            } else {
-                console.log('Tidak ada data analisis CV ditemukan untuk user:', userId);
-                // Set state ke null atau empty object
-                // setDataCvAnalysis(null);
+        return {
+          success: true,
+          data: data[0].analysis_data,
+          hasData: true
+        };
+      } else {
+        console.log('Tidak ada data analisis CV ditemukan untuk user:', userId);
+        // Set state ke null atau empty object
+        // setDataCvAnalysis(null);
 
-                return {
-                    success: true,
-                    data: [],
-                    hasData: false,
-                    message: 'Belum ada data analisis CV'
-                };
-            }
+        return {
+          success: true,
+          data: [],
+          hasData: false,
+          message: 'Belum ada data analisis CV'
+        };
+      }
 
-        } catch (error) {
-            console.error('Error dalam getUserCvAnalyses:', error);
-            return {
-                success: false,
-                message: error.message || 'Gagal mengambil data analisis CV',
-                error: error,
-                data: []
-            };
-        }
-    };
+    } catch (error) {
+      console.error('Error dalam getUserCvAnalyses:', error);
+      return {
+        success: false,
+        message: 'Gagal mengambil data analisis CV',
+        error: error,
+        data: []
+      };
+    }
+  };
 
-    const fetchAllJobs = async () => {
+  const fetchAllJobs = async () => {
     try {
       const response = await fetch('/api/jobs')
       const result = await response.json()
@@ -232,69 +246,69 @@ export default function AlertsPage() {
     }
   };
 
-const handleSend = async (alert: Alert) => {
-  console.log('Send alert:', alert);
-  
-  try {
-    // 1. Fetch analisis CV
-     const [sessionData, userData] = await Promise.all([
-          getCurrentSession(),
-          getCurrentUserWithProfile()
-        ]);
+  const handleSend = async (alert: Alert) => {
+    console.log('Send alert:', alert);
 
-        console.log("userData :", userData?.id);
-    const analisisCv = await getUserCvAnalyses(String(userData?.id));
-    console.log("analisisCv: ", analisisCv.data);
+    try {
+      // 1. Fetch analisis CV
+      const [sessionData, userData] = await Promise.all([
+        getCurrentSession(),
+        getCurrentUserWithProfile()
+      ]);
 
-    // 2. Dapatkan rekomendasi jobs
-    const findJobs = await fetch('/api/rekomendasi-jobs', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        hasilAnalisis: analisisCv.data,
-        listJobs: jobsIndo
-      }),
-    });
-    
-    const jobsResult = await findJobs.json();
-    console.log('Jobs found:', jobsResult);
+      console.log("userData :", userData?.id);
+      const analisisCv = await getUserCvAnalyses(String(userData?.id));
+      console.log("analisisCv: ", analisisCv.data);
 
+      // 2. Dapatkan rekomendasi jobs
+      const findJobs = await fetch('/api/rekomendasi-jobs', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          hasilAnalisis: analisisCv.data,
+          listJobs: jobsIndo
+        }),
+      });
 
+      const jobsResult = await findJobs.json();
+      console.log('Jobs found:', jobsResult);
 
 
-    // 3. Kirim alert dengan data jobs
-    const response = await fetch('/api/send', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        firstName: "rizki",
-        email: alert.notification_target || "",
-        alert: alert,
-        jobs: jobsResult // Gunakan hasil langsung dari API
-      }),
-    });
 
-    // Periksa response
-    if (!response.ok) {
-      const errorData = await response.json();
-      console.error('Error response:', errorData);
-      throw new Error(errorData.error || 'Failed to send');
+
+      // 3. Kirim alert dengan data jobs
+      const response = await fetch('/api/send', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          firstName: "rizki",
+          email: alert.notification_target || "",
+          alert: alert,
+          jobs: jobsResult // Gunakan hasil langsung dari API
+        }),
+      });
+
+      // Periksa response
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('Error response:', errorData);
+        throw new Error(errorData.error || 'Failed to send');
+      }
+
+      const data = await response.json();
+      console.log('Success:', data);
+
+      // Update state jika diperlukan untuk UI
+      setDataRekomendasiJobs(jobsResult);
+
+    } catch (error) {
+      console.error('Error sending alert:', error);
     }
-
-    const data = await response.json();
-    console.log('Success:', data);
-    
-    // Update state jika diperlukan untuk UI
-    setDataRekomendasiJobs(jobsResult);
-
-  } catch (error) {
-    console.error('Error sending alert:', error);
   }
-}
 
   const filteredAlerts = filter === 'all'
     ? alerts

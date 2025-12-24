@@ -3,6 +3,32 @@ import { NextApiRequest, NextApiResponse } from 'next';
 import formidable from 'formidable';
 import fs from 'fs';
 import { supabase } from '@/lib/supabaseClient';
+import { Tables } from '@/types/supabase';
+
+// Type untuk response
+interface UploadResponse {
+  success?: boolean;
+  message?: string;
+  data?: {
+    publicUrl: string;
+    storage_path: string;
+    file_name: string;
+    file_size: number;
+    uploaded_at: string;
+    userId: string;
+    id?: string;
+    user_id?: string;
+    file_url?: string;
+    file_type?: string;
+    created_at?: string;
+    updated_at?: string;
+  };
+  error?: string;
+  details?: string;
+  allowed?: string[];
+  receivedType?: string;
+  timestamp?: string;
+}
 
 // Harus ada untuk formidable
 export const config = {
@@ -13,7 +39,7 @@ export const config = {
 
 export default async function handler(
   req: NextApiRequest,
-  res: NextApiResponse
+  res: NextApiResponse<UploadResponse>
 ) {
   console.log('=== API Upload CV (Pages Router) ===');
 
@@ -89,7 +115,7 @@ export default async function handler(
       console.error('Invalid file type:', file.mimetype);
       return res.status(400).json({ 
         error: 'Only PDF files are allowed',
-        receivedType: file.mimetype
+        receivedType: file.mimetype || undefined
       });
     }
 
@@ -139,18 +165,19 @@ export default async function handler(
 
     console.log('Public URL:', urlData.publicUrl);
 
-    // 3. Save to database
-    let dbData = null;
+    // 3. Save to database (user_cvs table)
+    type UserCVRow = Tables<'user_cvs'>;
+    let dbData: UserCVRow | null = null;
+
     try {
-      // Try with 'user_cvs' table (sesuai dengan kode yang berhasil)
       const { data, error: dbError } = await supabase
         .from('user_cvs')
         .upsert({
           user_id: userId,
           file_name: originalName,
           file_url: urlData.publicUrl,
-          file_size: file.size,
-          file_type: file.mimetype,
+          file_size: file.size || 0,
+          file_type: file.mimetype || 'application/pdf',
           storage_path: fileName,
           updated_at: new Date().toISOString(),
         })
@@ -158,35 +185,15 @@ export default async function handler(
         .single();
 
       if (dbError) {
-        console.warn('Database error (trying cvs table):', dbError);
-        
-        // Try with 'cvs' table instead
-        const { data: altData, error: altError } = await supabase
-          .from('cvs')
-          .upsert({
-            user_id: userId,
-            file_name: originalName,
-            file_url: urlData.publicUrl,
-            file_size: file.size,
-            file_type: file.mimetype,
-            storage_path: fileName,
-          })
-          .select()
-          .single();
-
-        if (altError) {
-          console.warn('Both database tables failed:', altError);
-          // Continue without database
-        } else {
-          dbData = altData;
-          console.log('Saved to cvs table');
-        }
+        console.error('Database error:', dbError);
+        // Continue without database - file is already uploaded to storage
+        console.warn('File uploaded to storage but not saved to database');
       } else {
         dbData = data;
-        console.log('Saved to user_cvs table');
+        console.log('Saved to user_cvs table successfully');
       }
-    } catch (dbException: any) {
-      console.warn('Database exception:', dbException);
+    } catch (dbException) {
+      console.error('Database exception:', dbException instanceof Error ? dbException.message : 'Unknown error');
       // Continue with storage-only
     }
 
@@ -199,7 +206,7 @@ export default async function handler(
     }
 
     // 4. Return success response
-    const responseData = {
+    const responseData: UploadResponse = {
       success: true,
       message: 'File uploaded successfully',
       data: {
@@ -207,7 +214,7 @@ export default async function handler(
         publicUrl: urlData.publicUrl,
         storage_path: fileName,
         file_name: originalName,
-        file_size: file.size,
+        file_size: file.size || 0,
         uploaded_at: new Date().toISOString(),
         userId
       }
@@ -216,15 +223,19 @@ export default async function handler(
     console.log('Returning success response');
     return res.status(201).json(responseData);
 
-  } catch (error: any) {
+  } catch (error) {
     console.error('=== API ERROR ===');
-    console.error('Error name:', error.name);
-    console.error('Error message:', error.message);
-    console.error('Error stack:', error.stack);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const errorStack = error instanceof Error ? error.stack : undefined;
+
+    console.error('Error message:', errorMessage);
+    if (errorStack) {
+      console.error('Error stack:', errorStack);
+    }
 
     return res.status(500).json({
       error: 'Internal server error',
-      details: process.env.NODE_ENV === 'development' ? error.message : 'Please try again later',
+      details: process.env.NODE_ENV === 'development' ? errorMessage : 'Please try again later',
       timestamp: new Date().toISOString()
     });
   }

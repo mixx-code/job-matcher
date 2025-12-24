@@ -39,6 +39,7 @@ The easiest way to deploy your Next.js app is to use the [Vercel Platform](https
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/pages/building-your-application/deploying) for more details.
 
+
 ```
 job-matcher
 ├─ eslint.config.mjs
@@ -57,47 +58,113 @@ job-matcher
 ├─ src
 │  ├─ components
 │  │  ├─ AIChat.tsx
+│  │  ├─ AlertCard.tsx
+│  │  ├─ AlertForm.tsx
 │  │  ├─ AuthForm.tsx
+│  │  ├─ CardJobs.tsx
 │  │  ├─ CustomAuth.tsx
-│  │  ├─ CVAnalysis.tsx
-│  │  └─ Dashboard
-│  │     ├─ CVSection.tsx
-│  │     ├─ Header.tsx
-│  │     ├─ LoadingSpinner.tsx
-│  │     ├─ QuickStats.tsx
-│  │     ├─ RecentActivity.tsx
-│  │     └─ UserProfile.tsx
+│  │  ├─ CVAnalysisComponent.tsx
+│  │  ├─ Dashboard
+│  │  │  └─ Header.tsx
+│  │  ├─ email-template.tsx
+│  │  ├─ Fileupload.tsx
+│  │  ├─ JobCard.tsx
+│  │  ├─ JobCardAll.tsx
+│  │  ├─ JobFilters.tsx
+│  │  ├─ Layout.tsx
+│  │  ├─ matched-jobs.tsx
+│  │  ├─ MatchedJobsList.tsx
+│  │  └─ SaveJobCard.tsx
+│  ├─ contexts
+│  │  └─ AuthContext.tsx
+│  ├─ data
+│  │  └─ mockData.ts
+│  ├─ hooks
+│  │  ├─ useAuthSession.ts
+│  │  ├─ useCVManagement.ts
+│  │  ├─ useFileUpload.ts
+│  │  └─ usePDFExtraction.ts
 │  ├─ lib
+│  │  ├─ analysisService.ts
+│  │  ├─ checkDataCv.ts
+│  │  ├─ cron-manager.ts
 │  │  ├─ cv-text-extractor.ts
+│  │  ├─ getSession.ts
 │  │  ├─ google-genai.ts
-│  │  ├─ pdfExtractor.ts
-│  │  └─ supabaseClient.ts
+│  │  ├─ init-cron.ts
+│  │  ├─ saveJob.ts
+│  │  ├─ serverAuth.ts
+│  │  ├─ supabase-server-cron.ts
+│  │  ├─ supabaseClient.ts
+│  │  └─ supabaseServer.ts
 │  ├─ pages
 │  │  ├─ ai-demo.tsx
+│  │  ├─ alerts
+│  │  │  ├─ create.tsx
+│  │  │  ├─ edit
+│  │  │  │  └─ [id].tsx
+│  │  │  └─ index.tsx
 │  │  ├─ api
+│  │  │  ├─ alerts
+│  │  │  │  ├─ index.ts
+│  │  │  │  └─ [id].ts
 │  │  │  ├─ analyze-cv.ts
 │  │  │  ├─ auth
 │  │  │  │  ├─ login.ts
 │  │  │  │  ├─ logout.ts
 │  │  │  │  ├─ signup.ts
 │  │  │  │  └─ user.ts
+│  │  │  ├─ cron
+│  │  │  │  ├─ alerts.ts
+│  │  │  │  ├─ start.ts
+│  │  │  │  └─ stop.ts
+│  │  │  ├─ extract-pdf.ts
+│  │  │  ├─ find-jobs.ts
 │  │  │  ├─ generate.ts
 │  │  │  ├─ hello.ts
-│  │  │  └─ protected
-│  │  │     └─ profile.ts
+│  │  │  ├─ jobs
+│  │  │  │  ├─ index.ts
+│  │  │  │  └─ jobs-terbaru.ts
+│  │  │  ├─ protected
+│  │  │  │  └─ profile.ts
+│  │  │  ├─ public
+│  │  │  │  └─ jobs
+│  │  │  │     └─ index.ts
+│  │  │  ├─ rekomendasi-jobs.ts
+│  │  │  ├─ send-to-username.ts
+│  │  │  ├─ send.ts
+│  │  │  ├─ upload-cv.ts
+│  │  │  └─ webhook.ts
 │  │  ├─ auth
 │  │  │  └─ callback.tsx
 │  │  ├─ dashboard.tsx
 │  │  ├─ index.tsx
+│  │  ├─ jobs
+│  │  │  └─ index.tsx
 │  │  ├─ login.tsx
+│  │  ├─ saved
+│  │  │  └─ index.tsx
 │  │  ├─ _app.tsx
 │  │  └─ _document.tsx
+│  ├─ scripts
+│  │  └─ setup-webhook.ts
+│  ├─ services
+│  │  ├─ cvService.ts
+│  │  ├─ fileUploadService.ts
+│  │  ├─ pdfExtractionService.ts
+│  │  └─ saveJobService.ts
 │  ├─ styles
 │  │  └─ globals.css
-│  └─ types
-│     ├─ cv-analysis.ts
-│     ├─ google-genai.d.ts
-│     └─ supabase.ts
+│  ├─ types
+│  │  ├─ alert.ts
+│  │  ├─ cv-analysis.ts
+│  │  ├─ google-genai.d.ts
+│  │  ├─ job-indo.ts
+│  │  ├─ job.ts
+│  │  ├─ saveJob.ts
+│  │  └─ supabase.ts
+│  └─ utils
+│     └─ fetchJobs.ts
 └─ tsconfig.json
 
 ```

@@ -1,16 +1,70 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { GoogleGenAI } from "@google/genai";
+import { Json } from '@/types/supabase';
 
 const ai = new GoogleGenAI({
     apiKey: process.env.GEMINI_API_KEY!
 });
 
+// Types untuk CV Analysis
+interface PersonalInfo {
+    name: string | null;
+    location: string | null;
+    email: string | null;
+    phone: string | null;
+}
+
+interface ProfessionalSummary {
+    field: string;
+    experienceLevel: string;
+    keyExpertise: string[];
+}
+
+interface SkillMatch {
+    technical: number;
+    experience: number;
+    education: number;
+    presentation: number;
+}
+
+interface CVAnalysisData {
+    personalInfo: PersonalInfo;
+    professionalSummary: ProfessionalSummary;
+    overallScore: number;
+    strengths: string[];
+    improvements: string[];
+    missingSkills: string[];
+    missingElements: string[];
+    skill: string[];
+    skillMatch: SkillMatch;
+    recommendations: string[];
+    rekomendasiJobs: string[];
+    summary: string;
+}
+
+interface AnalysisResponse {
+    success: boolean;
+    message?: string;
+    error?: string;
+    analysisMetadata?: {
+        processingTime: number;
+        cvLength: number;
+        timestamp: string;
+        note?: string;
+    };
+}
+
+type CVAnalysisApiResponse = AnalysisResponse & Partial<CVAnalysisData>;
+
 export default async function handler(
     req: NextApiRequest,
-    res: NextApiResponse
+    res: NextApiResponse<CVAnalysisApiResponse>
 ) {
     if (req.method !== 'POST') {
-        return res.status(405).json({ error: 'Method not allowed' });
+        return res.status(405).json({
+            success: false,
+            error: 'Method not allowed'
+        });
     }
 
     console.log('🎯 Memulai analisis CV...');
@@ -32,7 +86,6 @@ ANALISIS CV PROFESIONAL - UNTUK SEMUA BIDANG PEKERJAAN
 
 **DATA CV KANDIDAT:**
 ${cvText}
-
 
 **TUGAS ANALISIS:**
 1. Analisis CV ini untuk semua bidang pekerjaan
@@ -94,36 +147,27 @@ ${cvText}
 
         console.log('✅ Response AI diterima');
 
-        // Debug: cek struktur response
-        console.log('Response structure:', JSON.stringify(response, null, 2).substring(0, 1000));
-
-        // Extract text dari response - FIX DISINI!
+        // Extract text dari response - menggunakan method text() dari Gemini API
         let responseText = '';
 
-        // Periksa struktur response dengan detail
-        if (response.candidates && response.candidates.length > 0) {
-            const candidate = response.candidates[0];
-            console.log('Candidate structure:', JSON.stringify(candidate, null, 2).substring(0, 500));
+        try {
+            // GenerateContentResponse memiliki method text() yang mengembalikan Promise<string>
+            responseText = await response.text;
 
-            if (candidate.content && candidate.content.parts && candidate.content.parts.length > 0) {
-                const part = candidate.content.parts[0];
-                console.log('Part structure:', JSON.stringify(part, null, 2));
-
-                if (part.text) {
-                    responseText = part.text;
-                } else {
-                    console.error('No text in part:', part);
-                }
-            } else {
-                console.error('No content.parts in candidate:', candidate.content);
+            if (!responseText) {
+                throw new Error('Empty response from AI');
             }
-        } else {
-            console.error('No candidates in response');
+        } catch (extractError) {
+            console.error('Error extracting text:', extractError);
+            // Log struktur response untuk debugging
+            console.log('Response type:', typeof response);
+            console.log('Response keys:', Object.keys(response));
+            throw new Error('Failed to extract text from AI response');
         }
 
         if (!responseText) {
             console.error('Failed to extract text, using fallback');
-            throw new Error('Failed to extract text from AI response');
+            throw new Error('Empty response from AI');
         }
 
         responseText = responseText.trim();
@@ -138,12 +182,12 @@ ${cvText}
 
         console.log('Cleaned text preview:', responseText.substring(0, 300));
 
-        let analysisData;
+        let analysisData: CVAnalysisData;
         try {
             analysisData = JSON.parse(responseText);
             console.log('✅ JSON berhasil di-parse');
-        } catch (parseError: any) {
-            console.error('❌ Error parsing JSON:', parseError.message);
+        } catch (parseError) {
+            console.error('❌ Error parsing JSON:', parseError instanceof Error ? parseError.message : 'Unknown error');
             console.error('Problematic text:', responseText.substring(0, 500));
 
             // Coba bersihkan lagi dengan regex
@@ -179,20 +223,21 @@ ${cvText}
             }
         });
 
-    } catch (error: any) {
+    } catch (error) {
         const endTime = Date.now();
-        console.error('❌ CV Analysis error:', error.message);
-        console.error('Error stack:', error.stack);
+        console.error('❌ CV Analysis error:', error instanceof Error ? error.message : 'Unknown error');
+        console.error('Error stack:', error instanceof Error ? error.stack : '');
 
         // Cek jika error karena quota/limit
-        if (error.message?.includes('429') || error.message?.includes('quota') || error.message?.includes('limit')) {
+        const errorMessage = error instanceof Error ? error.message : '';
+        if (errorMessage.includes('429') || errorMessage.includes('quota') || errorMessage.includes('limit')) {
             console.error('🚨 Gemini API limit habis!');
             console.error('🚨 Tunggu 1 menit atau cek quota di Google Cloud Console');
         }
 
         const fallbackData = validateAndCleanAnalysisData(createFallbackAnalysis(cvText));
 
-        res.status(200).json({  // Tetap return 200 dengan fallback data
+        res.status(200).json({
             success: true,
             message: 'Using fallback analysis due to API issue',
             ...fallbackData,
@@ -207,8 +252,8 @@ ${cvText}
 }
 
 // Fungsi untuk validasi dan cleanup data analysis
-function validateAndCleanAnalysisData(data: any): any {
-    const cleanedData = {
+function validateAndCleanAnalysisData(data: Partial<CVAnalysisData>): CVAnalysisData {
+    const cleanedData: CVAnalysisData = {
         personalInfo: {
             name: data.personalInfo?.name || null,
             location: data.personalInfo?.location || null,
@@ -240,16 +285,16 @@ function validateAndCleanAnalysisData(data: any): any {
     };
 
     // Validasi tambahan untuk memastikan tidak ada null di array
-    cleanedData.missingSkills = cleanedData.missingSkills.filter((skill: any) => skill != null);
-    cleanedData.strengths = cleanedData.strengths.filter((strength: any) => strength != null);
-    cleanedData.improvements = cleanedData.improvements.filter((improvement: any) => improvement != null);
-    cleanedData.recommendations = cleanedData.recommendations.filter((rec: any) => rec != null);
+    cleanedData.missingSkills = cleanedData.missingSkills.filter((skill): skill is string => skill != null);
+    cleanedData.strengths = cleanedData.strengths.filter((strength): strength is string => strength != null);
+    cleanedData.improvements = cleanedData.improvements.filter((improvement): improvement is string => improvement != null);
+    cleanedData.recommendations = cleanedData.recommendations.filter((rec): rec is string => rec != null);
 
     return cleanedData;
 }
 
 // Fungsi untuk create fallback analysis
-function createFallbackAnalysis(cvText: string): any {
+function createFallbackAnalysis(cvText: string): CVAnalysisData {
     const extractedInfo = extractInfoManually(cvText);
     const professionalSummary = analyzeProfessionalField(cvText);
 
@@ -279,8 +324,8 @@ function createFallbackAnalysis(cvText: string): any {
 }
 
 // Fungsi untuk extract info manually dari CV text
-function extractInfoManually(cvText: string): any {
-    const personalInfo = {
+function extractInfoManually(cvText: string): PersonalInfo {
+    const personalInfo: PersonalInfo = {
         name: null,
         location: null,
         email: null,
@@ -324,7 +369,7 @@ function extractInfoManually(cvText: string): any {
 }
 
 // Fungsi untuk menganalisis bidang profesional dari CV text
-function analyzeProfessionalField(cvText: string): any {
+function analyzeProfessionalField(cvText: string): ProfessionalSummary {
     if (!cvText || cvText.trim().length === 0) {
         return {
             field: 'General',
@@ -335,7 +380,7 @@ function analyzeProfessionalField(cvText: string): any {
 
     const textLower = cvText.toLowerCase();
 
-    const fieldKeywords = {
+    const fieldKeywords: Record<string, string[]> = {
         'Software Development': ['programmer', 'developer', 'software', 'coding', 'programming', 'react', 'java', 'python', 'javascript'],
         'IT & Technology': ['it', 'teknologi', 'system', 'network', 'database', 'server', 'cloud'],
         'Marketing & Sales': ['marketing', 'sales', 'promosi', 'iklan', 'brand', 'customer'],
@@ -364,7 +409,7 @@ function analyzeProfessionalField(cvText: string): any {
         experienceLevel = 'Mid-Level';
     }
 
-    const keyExpertise = [];
+    const keyExpertise: string[] = [];
     const allKeywords = Object.values(fieldKeywords).flat();
     for (const keyword of allKeywords) {
         if (textLower.includes(keyword) && !keyExpertise.includes(keyword)) {

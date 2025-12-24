@@ -51,38 +51,75 @@ interface MatchedJobsPageProps {
 const MatchedJobsPage: React.FC<MatchedJobsPageProps> = ({ dataJobApi, dataJobsIndo, user_id }) => {
   const [loading, setLoading] = useState<boolean>(false);
   const [dataRekomendasiJobs, setDataRekomendasiJobs] = useState<MatchedJob[]>([]);
+  const [listJobs, setListJobs] = useState<MatchedJob[]>([]);
 
   console.log("dataRekomendasiJobs: ", dataRekomendasiJobs);
   console.log("user_id: ", user_id);
   console.log("dataJobApi: ", dataJobApi);
 
-  // Handle dataJobApi yang bisa berupa array atau objek
-  let listJobs: MatchedJob[] = [];
-
-  if (Array.isArray(dataJobApi)) {
-    // Jika dataJobApi adalah array langsung
-    listJobs = dataRekomendasiJobs.length > 0 ? dataRekomendasiJobs : dataJobApi;
-  } else if (dataJobApi && 'matched_jobs' in dataJobApi) {
-    // Jika dataJobApi adalah objek dengan property matched_jobs
-    listJobs = dataRekomendasiJobs.length > 0 ? dataRekomendasiJobs : dataJobApi.matched_jobs || [];
-  }
-
-  console.log("listJobs: ", listJobs);
-
+  // EFFECT 1: Update listJobs berdasarkan dataRekomendasiJobs dan dataJobApi
   useEffect(() => {
-    if (dataRekomendasiJobs.length === 0) {
+    console.log("EFFECT RUNNING: dataRekomendasiJobs changed", dataRekomendasiJobs);
+
+    let newListJobs: MatchedJob[] = [];
+
+    // PRIORITAS: Gunakan dataRekomendasiJobs jika ada
+    if (dataRekomendasiJobs.length > 0) {
+      console.log("Menggunakan dataRekomendasiJobs:", dataRekomendasiJobs.length);
+      newListJobs = dataRekomendasiJobs;
+    }
+    // Jika tidak ada dataRekomendasiJobs, gunakan dataJobApi
+    else if (Array.isArray(dataJobApi)) {
+      console.log("Menggunakan dataJobApi (array):", dataJobApi.length);
+      newListJobs = dataJobApi;
+    }
+    else if (dataJobApi && 'matched_jobs' in dataJobApi) {
+      console.log("Menggunakan dataJobApi (objek):", dataJobApi.matched_jobs?.length);
+      newListJobs = dataJobApi.matched_jobs || [];
+    }
+
+    console.log("newListJobs yang akan di-set:", newListJobs);
+    setListJobs(newListJobs);
+
+  }, [dataRekomendasiJobs, dataJobApi]);
+
+  // EFFECT 2: Load from localStorage hanya sekali saat mount
+  useEffect(() => {
+    const loadFromLocalStorage = () => {
       const jobs = localStorage.getItem('jobs');
-      console.log("jobs local: ", jobs);
+      console.log("Mengambil jobs dari localStorage:", jobs);
+
       if (jobs) {
         try {
           const parsedJobs = JSON.parse(jobs);
-          setDataRekomendasiJobs(parsedJobs);
+          console.log("Parsed jobs:", parsedJobs);
+
+          let jobsArray: MatchedJob[] = [];
+
+          // Extract array dari berbagai format
+          if (Array.isArray(parsedJobs)) {
+            jobsArray = parsedJobs;
+          }
+          else if (parsedJobs && 'matched_jobs' in parsedJobs && Array.isArray(parsedJobs.matched_jobs)) {
+            jobsArray = parsedJobs.matched_jobs;
+          }
+          else if (parsedJobs && 'success' in parsedJobs && Array.isArray(parsedJobs.matched_jobs)) {
+            jobsArray = parsedJobs.matched_jobs;
+          }
+
+          if (jobsArray.length > 0) {
+            console.log("Mengatur data dari localStorage:", jobsArray.length);
+            setDataRekomendasiJobs(jobsArray);
+          }
+
         } catch (error) {
           console.error("Error parsing jobs from localStorage:", error);
         }
       }
-    }
-  }, [dataRekomendasiJobs.length]);
+    };
+
+    loadFromLocalStorage();
+  }, []); // Hanya jalankan sekali saat mount
 
   const getUserCvAnalyses = async (userId: string) => {
     try {
@@ -147,6 +184,7 @@ const MatchedJobsPage: React.FC<MatchedJobsPageProps> = ({ dataJobApi, dataJobsI
 
       if (!analisisCv.success || !analisisCv.data) {
         console.error("Tidak ada data analisis CV yang valid");
+        setLoading(false);
         return;
       }
 
@@ -165,10 +203,29 @@ const MatchedJobsPage: React.FC<MatchedJobsPageProps> = ({ dataJobApi, dataJobsI
         throw new Error(`HTTP error! status: ${findJobs.status}`);
       }
 
-      const jobs = await findJobs.json();
-      setDataRekomendasiJobs(jobs);
-      localStorage.setItem('jobs', JSON.stringify(jobs));
-      console.log('Jobs found:', jobs);
+      const jobsResult = await findJobs.json();
+      console.log('Jobs result from API:', jobsResult);
+
+      // PERBAIKAN: Ekstrak array dari response API
+      let jobsArray: MatchedJob[] = [];
+
+      if (Array.isArray(jobsResult)) {
+        jobsArray = jobsResult;
+      }
+      else if (jobsResult && 'matched_jobs' in jobsResult && Array.isArray(jobsResult.matched_jobs)) {
+        jobsArray = jobsResult.matched_jobs;
+      }
+      else if (jobsResult && 'success' in jobsResult && Array.isArray(jobsResult.matched_jobs)) {
+        jobsArray = jobsResult.matched_jobs;
+      }
+
+      console.log('Extracted jobs array:', jobsArray);
+
+      // Simpan ke localStorage
+      localStorage.setItem('jobs', JSON.stringify(jobsResult));
+
+      // Update state - INI YANG AKAN MEMICU RENDER ULANG
+      setDataRekomendasiJobs(jobsArray);
 
     } catch (error) {
       console.error('Error searching jobs:', error);
@@ -272,7 +329,7 @@ const MatchedJobsPage: React.FC<MatchedJobsPageProps> = ({ dataJobApi, dataJobsI
                 </Button>
               </div>
             ) : (
-                <>
+              <>
                 <div className="bg-gradient-to-r from-blue-50 to-purple-50 p-4 sm:p-6 border-b border-gray-200">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div className="flex-1">
@@ -280,7 +337,7 @@ const MatchedJobsPage: React.FC<MatchedJobsPageProps> = ({ dataJobApi, dataJobsI
                         <h2 className="text-lg sm:text-xl font-bold text-gray-800 flex items-center gap-2">
                           <CheckCircleOutlined className="text-green-600 text-base sm:text-lg" />
                           <span className="whitespace-nowrap">Matched Job Opportunities</span>
-                          </h2>
+                        </h2>
                         <div className="sm:hidden">
                           <div className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full font-semibold text-sm inline-block">
                             {listJobs.length} Jobs
@@ -308,17 +365,17 @@ const MatchedJobsPage: React.FC<MatchedJobsPageProps> = ({ dataJobApi, dataJobsI
                       <span className="hidden xs:inline">Real-time</span>
                       <span className="xs:hidden">Live</span>
                     </Tag>
-                      <Tag color="purple" icon={<StarOutlined />} className="text-xs sm:text-sm">
-                        <span className="hidden xs:inline">Personalized</span>
-                        <span className="xs:hidden">Custom</span>
-                      </Tag>
-                    </div>
+                    <Tag color="purple" icon={<StarOutlined />} className="text-xs sm:text-sm">
+                      <span className="hidden xs:inline">Personalized</span>
+                      <span className="xs:hidden">Custom</span>
+                    </Tag>
                   </div>
+                </div>
 
-                  {/* Job List Content - INI YANG DIPERBAIKI */}
-                  <div className="p-6">
-                    <MatchedJobsList jobs={convertToJobFormat(listJobs)} />
-                  </div>
+                {/* Job List Content - INI YANG DIPERBAIKI */}
+                <div className="p-6">
+                  <MatchedJobsList jobs={convertToJobFormat(listJobs)} />
+                </div>
               </>
             )}
           </div>

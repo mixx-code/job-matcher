@@ -5,6 +5,48 @@ import Layout from '../../../components/Layout';
 import AlertForm from '../../../components/AlertForm';
 import { AlertFormData } from '../../../types/alert';
 import { supabase } from '@/lib/supabaseClient';
+import type { Database } from '@/types/supabase';
+
+// Type untuk search criteria dari database
+type Json = Database['public']['Tables']['alerts']['Row']['search_criteria'];
+type AlertRow = Database['public']['Tables']['alerts']['Row'];
+
+// Interface untuk search criteria yang akan di-convert
+// Tambahkan index signature untuk memenuhi tipe Json
+interface SearchCriteriaJson {
+  keywords: string[];
+  location: string;
+  salaryMin?: number;
+  salaryMax?: number;
+  jobType?: string;
+  experienceLevel?: string;
+  industry: string;
+  remoteOnly: boolean;
+  // Index signature untuk kompatibilitas dengan Json
+  [key: string]: string | number | boolean | string[] | undefined;
+}
+
+// Type guard untuk mengecek apakah value adalah object
+function isObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+// Type guard untuk mengecek apakah value adalah string array
+function isStringArray(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every(item => typeof item === 'string');
+}
+
+// Type guard untuk mengecek apakah value adalah SearchCriteriaJson
+function isSearchCriteriaJson(value: unknown): value is SearchCriteriaJson {
+  if (!isObject(value)) return false;
+
+  const obj = value;
+  return (
+    Array.isArray(obj.keywords) &&
+    typeof obj.location === 'string' &&
+    typeof obj.remoteOnly === 'boolean'
+  );
+}
 
 export default function EditAlertPage() {
   const router = useRouter();
@@ -20,6 +62,84 @@ export default function EditAlertPage() {
       fetchAlertData();
     }
   }, [id]);
+
+  // Fungsi untuk mengonversi Json ke SearchCriteria
+  const convertJsonToSearchCriteria = (json: Json): AlertFormData['searchCriteria'] => {
+    if (!json) {
+      return {
+        keywords: [],
+        location: '',
+        salaryMin: undefined,
+        salaryMax: undefined,
+        jobType: undefined,
+        experienceLevel: undefined,
+        industry: '',
+        remoteOnly: false,
+      };
+    }
+
+    try {
+      let parsedJson: unknown;
+
+      // Parse jika json adalah string
+      if (typeof json === 'string') {
+        parsedJson = JSON.parse(json);
+      } else {
+        parsedJson = json;
+      }
+
+      if (!isSearchCriteriaJson(parsedJson)) {
+        return {
+          keywords: [],
+          location: '',
+          salaryMin: undefined,
+          salaryMax: undefined,
+          jobType: undefined,
+          experienceLevel: undefined,
+          industry: '',
+          remoteOnly: false,
+        };
+      }
+
+      const searchCriteria = parsedJson;
+
+      return {
+        keywords: Array.isArray(searchCriteria.keywords) ? searchCriteria.keywords : [],
+        location: typeof searchCriteria.location === 'string' ? searchCriteria.location : '',
+        salaryMin: typeof searchCriteria.salaryMin === 'number' ? searchCriteria.salaryMin : undefined,
+        salaryMax: typeof searchCriteria.salaryMax === 'number' ? searchCriteria.salaryMax : undefined,
+        industry: typeof searchCriteria.industry === 'string' ? searchCriteria.industry : '',
+        remoteOnly: typeof searchCriteria.remoteOnly === 'boolean' ? searchCriteria.remoteOnly : false,
+      };
+    } catch (error) {
+      console.error('Error parsing search criteria:', error);
+      return {
+        keywords: [],
+        location: '',
+        salaryMin: undefined,
+        salaryMax: undefined,
+        jobType: undefined,
+        experienceLevel: undefined,
+        industry: '',
+        remoteOnly: false,
+      };
+    }
+  };
+
+  // Fungsi untuk mengonversi SearchCriteria ke Json
+  const convertSearchCriteriaToJson = (searchCriteria: AlertFormData['searchCriteria']): Json => {
+    const json: SearchCriteriaJson = {
+      keywords: searchCriteria.keywords || [],
+      location: searchCriteria.location || '',
+      salaryMin: searchCriteria.salaryMin,
+      salaryMax: searchCriteria.salaryMax,
+      jobType: searchCriteria.jobType,
+      experienceLevel: searchCriteria.experienceLevel,
+      industry: searchCriteria.industry || '',
+      remoteOnly: searchCriteria.remoteOnly || false,
+    };
+    return json;
+  };
 
   const fetchAlertData = async () => {
     try {
@@ -38,7 +158,7 @@ export default function EditAlertPage() {
       const { data: alert, error: fetchError } = await supabase
         .from('alerts')
         .select('*')
-        .eq('id', id)
+        .eq('id', String(id))
         .eq('user_id', session.user.id)
         .single();
 
@@ -53,20 +173,26 @@ export default function EditAlertPage() {
         throw new Error('Alert not found');
       }
 
-      // Transform database data to form data
+      // Konversi data dari database ke format form
+      const alertRow = alert as AlertRow;
       const formData: AlertFormData = {
-        name: alert.name,
-        searchCriteria: alert.search_criteria,
-        frequency: alert.frequency,
-        notificationMethod: alert.notification_method,
-        notificationTarget: alert.notification_target,
-        isActive: alert.is_active,
+        name: alertRow.name || '',
+        searchCriteria: convertJsonToSearchCriteria(alertRow.search_criteria),
+        frequency: (alertRow.frequency === 'daily' || alertRow.frequency === 'weekly')
+          ? alertRow.frequency
+          : 'daily',
+        notificationMethod: (alertRow.notification_method === 'email' || alertRow.notification_method === 'telegram')
+          ? alertRow.notification_method
+          : 'email',
+        notificationTarget: alertRow.notification_target || '',
+        isActive: alertRow.is_active !== null ? alertRow.is_active : true,
       };
 
       setAlertData(formData);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error fetching alert:', err);
-      setError(err.message || 'Failed to load alert data');
+      const errorMessage = err instanceof Error ? err.message : 'Failed to load alert data';
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -106,10 +232,21 @@ export default function EditAlertPage() {
         throw new Error('Your session has expired. Please login again.');
       }
 
-      // Calculate next_run if frequency changed
-      const updateData: any = {
+      // Interface untuk update data
+      interface UpdateData {
+        name: string;
+        search_criteria: Json;
+        frequency: 'daily' | 'weekly';
+        notification_method: 'email' | 'telegram';
+        notification_target: string;
+        is_active: boolean;
+        updated_at: string;
+        next_run?: string;
+      }
+
+      const updateData: UpdateData = {
         name: formData.name,
-        search_criteria: formData.searchCriteria,
+        search_criteria: convertSearchCriteriaToJson(formData.searchCriteria),
         frequency: formData.frequency,
         notification_method: formData.notificationMethod,
         notification_target: formData.notificationTarget,
@@ -119,14 +256,15 @@ export default function EditAlertPage() {
 
       // Check if frequency changed and update next_run accordingly
       if (alertData && alertData.frequency !== formData.frequency) {
-        updateData.next_run = calculateNextRun(formData.frequency);
+        const nextRun = calculateNextRun(formData.frequency);
+        updateData.next_run = nextRun.toISOString();
       }
 
       // Update alert in Supabase
       const { data: updatedAlert, error: updateError } = await supabase
         .from('alerts')
         .update(updateData)
-        .eq('id', id)
+        .eq('id', String(id))
         .eq('user_id', session.user.id)
         .select()
         .single();
@@ -144,9 +282,10 @@ export default function EditAlertPage() {
         router.push('/alerts');
       }, 1500);
 
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Update alert error:', err);
-      setError(err.message || 'Failed to update alert');
+      const errorMessage = err instanceof Error ? err.message : 'Failed to update alert';
+      setError(errorMessage);
     } finally {
       setSaving(false);
     }
@@ -188,7 +327,7 @@ export default function EditAlertPage() {
             
             <div className="flex items-center justify-center h-64">
               <div className="text-center">
-                {/* <LoadingSpinner size="large" /> */}
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
                 <p className="mt-4 text-gray-600">Loading alert data from database...</p>
               </div>
             </div>
@@ -281,24 +420,6 @@ export default function EditAlertPage() {
             </div>
           )}
 
-          {/* Database Info */}
-          <div className="mb-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <div className="flex">
-              <div className="flex-shrink-0">
-                <svg className="h-5 w-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4" />
-                </svg>
-              </div>
-              <div className="ml-3">
-                <h3 className="text-sm font-medium text-blue-800">Editing Alert from Database</h3>
-                <div className="mt-2 text-sm text-blue-700">
-                  <p>This alert is loaded from Supabase database.</p>
-                  <p className="mt-1">Changes will be updated in real-time.</p>
-                </div>
-              </div>
-            </div>
-          </div>
-
           {/* Error Message */}
           {error && (
             <div className="mb-6 bg-red-50 border border-red-200 rounded-md p-4">
@@ -330,9 +451,6 @@ export default function EditAlertPage() {
                       Update your job alert settings
                     </p>
                   </div>
-                  <div className="text-sm text-gray-500">
-                    Alert ID: <span className="font-mono bg-gray-100 px-2 py-1 rounded">{id}</span>
-                  </div>
                 </div>
               </div>
 
@@ -343,115 +461,6 @@ export default function EditAlertPage() {
                 initialData={alertData}
                 isEdit={true}
               />
-            </div>
-          </div>
-
-          {/* Database Information */}
-          <div className="mt-8 bg-gray-50 border border-gray-200 rounded-lg p-6">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">Database Operations</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <h4 className="text-sm font-medium text-gray-700 mb-2">Update Process</h4>
-                <ul className="text-sm text-gray-600 space-y-2">
-                  <li className="flex items-start">
-                    <div className="flex-shrink-0 h-5 w-5 text-blue-500 mt-0.5">1.</div>
-                    <div className="ml-3">
-                      <span className="font-medium">Validation</span>
-                      <p className="text-xs">Form data is validated before submission</p>
-                    </div>
-                  </li>
-                  <li className="flex items-start">
-                    <div className="flex-shrink-0 h-5 w-5 text-blue-500 mt-0.5">2.</div>
-                    <div className="ml-3">
-                      <span className="font-medium">User Check</span>
-                      <p className="text-xs">Session is verified for security</p>
-                    </div>
-                  </li>
-                  <li className="flex items-start">
-                    <div className="flex-shrink-0 h-5 w-5 text-blue-500 mt-0.5">3.</div>
-                    <div className="ml-3">
-                      <span className="font-medium">Database Update</span>
-                      <p className="text-xs">Data is updated in Supabase alerts table</p>
-                    </div>
-                  </li>
-                  <li className="flex items-start">
-                    <div className="flex-shrink-0 h-5 w-5 text-blue-500 mt-0.5">4.</div>
-                    <div className="ml-3">
-                      <span className="font-medium">Success Response</span>
-                      <p className="text-xs">Redirect to alerts list upon success</p>
-                    </div>
-                  </li>
-                </ul>
-              </div>
-              
-              <div>
-                <h4 className="text-sm font-medium text-gray-700 mb-2">Technical Details</h4>
-                <div className="text-sm text-gray-600 space-y-2">
-                  <div>
-                    <span className="font-medium">Table:</span>
-                    <code className="ml-2 bg-gray-100 px-2 py-1 rounded text-xs">alerts</code>
-                  </div>
-                  <div>
-                    <span className="font-medium">Update Query:</span>
-                    <div className="mt-1 bg-gray-100 p-2 rounded text-xs font-mono">
-                      UPDATE alerts<br />
-                      SET name = ?, search_criteria = ?,<br />
-                      frequency = ?, notification_method = ?,<br />
-                      notification_target = ?, is_active = ?<br />
-                      WHERE id = ? AND user_id = ?
-                    </div>
-                  </div>
-                  <div>
-                    <span className="font-medium">Security:</span>
-                    <p className="text-xs mt-1">User ID check ensures users can only edit their own alerts</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Test Actions */}
-          <div className="mt-8 border border-gray-200 rounded-lg overflow-hidden">
-            <div className="bg-gray-50 px-6 py-4 border-b border-gray-200">
-              <h3 className="text-lg font-medium text-gray-900">Test Validation</h3>
-              <p className="mt-1 text-sm text-gray-600">Try these test scenarios:</p>
-            </div>
-            <div className="bg-white p-6">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <button
-                  onClick={() => {
-                    const newData = { ...alertData };
-                    newData.name = '';
-                    setAlertData(newData);
-                  }}
-                  className="text-left p-3 border border-gray-300 rounded-lg hover:bg-gray-50"
-                >
-                  <span className="font-medium text-gray-900">Empty Name</span>
-                  <p className="mt-1 text-sm text-gray-500">Test validation error for empty name</p>
-                </button>
-                <button
-                  onClick={() => {
-                    const newData = { ...alertData };
-                    newData.notificationTarget = 'invalid-email';
-                    setAlertData(newData);
-                  }}
-                  className="text-left p-3 border border-gray-300 rounded-lg hover:bg-gray-50"
-                >
-                  <span className="font-medium text-gray-900">Invalid Email</span>
-                  <p className="mt-1 text-sm text-gray-500">Test email validation error</p>
-                </button>
-                <button
-                  onClick={() => {
-                    const newData = { ...alertData };
-                    newData.searchCriteria.keywords = [];
-                    setAlertData(newData);
-                  }}
-                  className="text-left p-3 border border-gray-300 rounded-lg hover:bg-gray-50"
-                >
-                  <span className="font-medium text-gray-900">No Keywords</span>
-                  <p className="mt-1 text-sm text-gray-500">Test validation for empty keywords</p>
-                </button>
-              </div>
             </div>
           </div>
         </div>

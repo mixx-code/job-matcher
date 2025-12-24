@@ -12,7 +12,6 @@ import { supabase } from "@/lib/supabaseClient";
 import { fetchJobsData } from "@/utils/fetchJobs";
 import CVAnalysisComponent from "@/components/CVAnalysisComponent";
 import MatchedJobsPage from "@/components/matched-jobs";
-import AllJobsList from "@/components/AllJobsList";
 import Layout from "@/components/Layout";
 
 
@@ -26,10 +25,6 @@ export default function Dashboard() {
   const [cvData, setCvData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
-
-  const JOBS_PER_PAGE = 50;
-  const APP_ID = process.env.NEXT_PUBLIC_ADZUNA_APP_ID;
-  const APP_KEY = process.env.NEXT_PUBLIC_ADZUNA_APP_KEY;
 
   // Effect 1: Cek auth dan ambil session/user
   useEffect(() => {
@@ -48,7 +43,7 @@ export default function Dashboard() {
           getCurrentUserWithProfile()
         ]);
 
-        setSession(sessionData);
+        // setSession(sessionData);
         setUser(userData);
         setUserId(userData?.id);
 
@@ -82,36 +77,6 @@ export default function Dashboard() {
     initializeAuth();
   }, [router]);
 
-
-  const loadJobs = async (page = 1) => {
-    try {
-      setLoading(true);
-
-      const url = `https://api.adzuna.com/v1/api/jobs/gb/search/${page}?app_id=${APP_ID}&app_key=${APP_KEY}&results_per_page=${JOBS_PER_PAGE}&where=london`;
-
-      const response = await fetch(url);
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data = await response.json();
-      console.log("data jobs: ", data.results);
-
-      // Hitung total halaman
-      // const calculatedTotalPages = Math.ceil(data.count / JOBS_PER_PAGE);
-
-      setJobs(data.results || []);
-      setTotalJobs(data.count);
-
-      console.log(`✅ Loaded ${data.results.length} jobs from API`);
-
-    } catch (err) {
-      console.error('Error loading jobs:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
 
 
   const fetchAllJobs = async () => {
