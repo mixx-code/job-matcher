@@ -1,4 +1,4 @@
-// components/FileInput.tsx - SHORT VERSION
+// components/FileInput.tsx - FIXED VERSION
 'use client';
 
 import { supabase } from '@/lib/supabaseClient';
@@ -8,7 +8,6 @@ import { useState } from 'react';
 
 const { Dragger } = Upload;
 
-// Gunakan types dari generated types
 import type { Database } from '@/types/supabase';
 
 type UserCVRow = Database['public']['Tables']['user_cvs']['Row'];
@@ -40,7 +39,6 @@ const FileInput: React.FC<FileInputProps> = ({ userId, file_name, onSuccess, exi
             });
 
             console.log("Response status:", response.status);
-            console.log("Response headers:", response.headers);
 
             const data = await response.json();
             console.log("Response data:", data);
@@ -51,8 +49,8 @@ const FileInput: React.FC<FileInputProps> = ({ userId, file_name, onSuccess, exi
                 return data.text;
             } else {
                 console.error("Error from API:", data.error);
-            return undefined;
-        }
+                return undefined;
+            }
 
         } catch (error) {
             console.error("Fetch error:", error);
@@ -71,54 +69,39 @@ const FileInput: React.FC<FileInputProps> = ({ userId, file_name, onSuccess, exi
         try {
             // 1. Upload ke storage
             const fileName = `${userId}/${Date.now()}-${file.name}`;
-          const uploadResult = await supabase.storage.from('cvs').upload(fileName, file);
+            const uploadResult = await supabase.storage.from('cvs').upload(fileName, file);
 
-          if (uploadResult.error) {
-              throw new Error(uploadResult.error.message);
-          }
-
-          // 2. Dapatkan URL
-          const { data: urlData } = supabase.storage.from('cvs').getPublicUrl(fileName);
-
-          if (!urlData?.publicUrl) {
-              throw new Error('Failed to get public URL');
-          }
-
-          const response = await fetching(urlData.publicUrl, userId);
-          console.log("response: ", response);
-
-          // Data yang akan di-insert/update dengan tipe yang benar
-          const cvData: UserCVUpdate = {
-              user_id: userId,
-              file_name: file.name,
-              file_url: urlData.publicUrl,
-              file_size: file.size,
-            extracted_text: response || null,
-            extraction_metadata: null, // tambahkan ini karena ada di schema
-            file_type: file.type,
-            storage_path: fileName,
-            updated_at: new Date().toISOString(),
-          };
-
-          // 3. Jika ada existingRecordId, update data yang ada
-          if (existingRecordId) {
-              const { data: updateData, error: updateError } = await supabase
-                  .from('user_cvs')
-                  .update(cvData)
-                  .eq('id', existingRecordId)
-                  .select()
-                  .single();
-
-            if (updateError) {
-                throw new Error(updateError.message);
+            if (uploadResult.error) {
+                throw new Error(uploadResult.error.message);
             }
 
-            if (updateData) {
-              onSuccess?.(updateData);
-          }
-            message.success(`${file.name} reuploaded successfully!`);
-        } else {
-            // 4. Jika tidak ada existingRecordId, cek apakah sudah ada data untuk user ini
+            // 2. Dapatkan URL
+            const { data: urlData } = supabase.storage.from('cvs').getPublicUrl(fileName);
+
+            if (!urlData?.publicUrl) {
+                throw new Error('Failed to get public URL');
+            }
+
+            // 3. Extract text dari PDF
+            const response = await fetching(urlData.publicUrl, userId);
+            console.log("Extracted text response: ", response);
+
+            // Data yang akan di-insert/update
+            const cvData: UserCVUpdate = {
+                user_id: userId,
+                file_name: file.name,
+                file_url: urlData.publicUrl,
+                file_size: file.size,
+                extracted_text: response || null,
+                extraction_metadata: null,
+                file_type: file.type,
+                storage_path: fileName,
+                updated_at: new Date().toISOString(),
+            };
+
+            let resultData: UserCVRow | null = null;
+
+            // 4. Cek apakah sudah ada data untuk user ini
             const { data: existingData, error: fetchError } = await supabase
                 .from('user_cvs')
                 .select('id')
@@ -129,65 +112,60 @@ const FileInput: React.FC<FileInputProps> = ({ userId, file_name, onSuccess, exi
                 throw new Error(fetchError.message);
             }
 
-            let resultData: UserCVRow | null = null;
-
             if (existingData?.id) {
-            // Jika sudah ada data untuk user ini, update data yang ada
-              const { data: updateData, error: updateError } = await supabase
-                  .from('user_cvs')
-                  .update(cvData)
-                  .eq('id', existingData.id)
-                  .select()
-                  .single();
+                // Update data yang sudah ada
+                const { data: updateData, error: updateError } = await supabase
+                    .from('user_cvs')
+                    .update(cvData)
+                    .eq('id', existingData.id)
+                    .select()
+                    .single();
 
-              if (updateError) {
-                  throw new Error(updateError.message);
-              }
+                if (updateError) {
+                    throw new Error(updateError.message);
+                }
 
-              if (updateData) {
                 resultData = updateData;
+                message.success(`${file.name} berhasil diupdate!`);
+            } else {
+                // Insert data baru
+                const insertData: UserCVInsert = {
+                    user_id: userId,
+                    file_name: file.name,
+                    file_url: urlData.publicUrl,
+                    file_size: file.size,
+                    extracted_text: response || null,
+                    extraction_metadata: null,
+                    file_type: file.type,
+                    storage_path: fileName,
+                };
+
+                const { data: insertedData, error: insertError } = await supabase
+                    .from('user_cvs')
+                    .insert(insertData)
+                    .select()
+                    .single();
+
+                if (insertError) {
+                    throw new Error(insertError.message);
+                }
+
+                resultData = insertedData;
+                message.success(`${file.name} berhasil diupload!`);
             }
-              message.success(`${file.name} replaced existing file!`);
-          } else {
-              // Jika belum ada data, buat baru
-              const insertData: UserCVInsert = {
-                  user_id: userId,
-                  file_name: file.name,
-                  file_url: urlData.publicUrl,
-                  file_size: file.size,
-                extracted_text: response || null,
-                extraction_metadata: null,
-                file_type: file.type,
-                storage_path: fileName,
-              };
 
-              const { data: insertedData, error: insertError } = await supabase
-                  .from('user_cvs')
-                  .insert(insertData)
-                  .select()
-                  .single();
-
-              if (insertError) {
-                  throw new Error(insertError.message);
-              }
-
-              if (insertedData) {
-                  resultData = insertedData;
-              }
-              message.success(`${file.name} uploaded!`);
-          }
-
-            if (resultData) {
-              onSuccess?.(resultData);
-                console.log("url pdf: ", resultData.file_url);
+            // PERBAIKAN 3: Pastikan onSuccess dipanggil dengan data yang benar
+            if (resultData && onSuccess) {
+                console.log("✅ Calling onSuccess with data:", resultData);
+                onSuccess(resultData);
             }
-        }
 
-          setLoading(false);
-          return false;
+            setLoading(false);
+            return false;
 
         } catch (error) {
-            message.error(`Upload failed: gagal upload file`);
+            console.error("Upload error:", error);
+            message.error(`Upload failed: ${error instanceof Error ? error.message : 'gagal upload file'}`);
             setLoading(false);
             return false;
         }
@@ -206,10 +184,11 @@ const FileInput: React.FC<FileInputProps> = ({ userId, file_name, onSuccess, exi
                 <Dragger
                     className={`w-full flex flex-col items-center justify-center py-8 px-4 ${file_name
                         ? 'border-2 border-blue-300 border-dashed bg-blue-50 hover:bg-blue-100'
-                            : 'border-2 border-gray-300 border-dashed hover:border-blue-400'
+                        : 'border-2 border-gray-300 border-dashed hover:border-blue-400'
                         } rounded-lg transition-all duration-200`}
                     showUploadList={false}
                     multiple={false}
+                    disabled={loading}  // PERBAIKAN 4: Tambahkan disabled di Dragger juga
                 >
                     <div className="ant-upload-drag-icon mb-4">
                         {loading ? (
@@ -253,7 +232,7 @@ const FileInput: React.FC<FileInputProps> = ({ userId, file_name, onSuccess, exi
 
                     <div className={`px-4 py-2 rounded-full text-xs font-medium ${file_name
                         ? 'bg-blue-100 text-blue-700 border border-blue-200'
-                            : 'bg-gray-100 text-gray-600'
+                        : 'bg-gray-100 text-gray-600'
                         }`}>
                         {file_name
                             ? 'File will be replaced when uploading new one'

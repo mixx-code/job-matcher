@@ -9,15 +9,17 @@ import type { CSSProperties } from 'react';
 
 // Definisikan tipe-tipe yang dibutuhkan
 interface MatchedJob {
-  id: string;
-  title: string;
+  id?: string;
+  title?: string;
+  job_title?: string; // Tambahkan untuk kompatibilitas
   company: string;
   location?: string;
   match_score: number;
   skills?: string[];
   salary_range?: string;
   description?: string;
-  url?: string;
+  job_url?: string; // Ganti url menjadi job_url untuk konsistensi
+  url?: string; // Tetap pertahankan untuk kompatibilitas
 }
 
 interface JobForList {
@@ -140,7 +142,7 @@ const MatchedJobsPage: React.FC<MatchedJobsPageProps> = ({ dataJobApi, dataJobsI
           success: false,
           message: error.message || 'Gagal mengambil data analisis CV',
           error: error,
-          data: []
+          data: null
         };
       }
 
@@ -157,7 +159,7 @@ const MatchedJobsPage: React.FC<MatchedJobsPageProps> = ({ dataJobApi, dataJobsI
         console.log('Tidak ada data analisis CV ditemukan untuk user:', userId);
         return {
           success: true,
-          data: [],
+          data: null,
           hasData: false,
           message: 'Belum ada data analisis CV'
         };
@@ -170,7 +172,7 @@ const MatchedJobsPage: React.FC<MatchedJobsPageProps> = ({ dataJobApi, dataJobsI
         success: false,
         message: errorMessage,
         error: error,
-        data: []
+        data: null
       };
     }
   };
@@ -221,11 +223,27 @@ const MatchedJobsPage: React.FC<MatchedJobsPageProps> = ({ dataJobApi, dataJobsI
 
       console.log('Extracted jobs array:', jobsArray);
 
-      // Simpan ke localStorage
-      localStorage.setItem('jobs', JSON.stringify(jobsResult));
+      // PERBAIKAN: Normalisasi data job
+      const normalizedJobs = jobsArray.map(job => ({
+        ...job,
+        // Pastikan job_title ada, gunakan title jika job_title tidak ada
+        job_title: job.job_title || job.title || 'Untitled Position',
+        // Pastikan job_url ada, gunakan url jika job_url tidak ada
+        job_url: job.job_url || job.url || '#',
+        // Generate ID jika tidak ada
+        id: job.id || `job-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+      }));
+
+      // PERBAIKAN: Hapus data lama dari localStorage sebelum menyimpan yang baru
+      localStorage.removeItem('jobs');
+
+      // Simpan ke localStorage (data baru)
+      localStorage.setItem('jobs', JSON.stringify(normalizedJobs));
+
+      console.log('Data jobs lama dihapus, data baru disimpan:', normalizedJobs.length);
 
       // Update state - INI YANG AKAN MEMICU RENDER ULANG
-      setDataRekomendasiJobs(jobsArray);
+      setDataRekomendasiJobs(normalizedJobs);
 
     } catch (error) {
       console.error('Error searching jobs:', error);
@@ -236,10 +254,10 @@ const MatchedJobsPage: React.FC<MatchedJobsPageProps> = ({ dataJobApi, dataJobsI
 
   // Fungsi untuk mengonversi MatchedJob ke JobForList
   const convertToJobFormat = (matchedJobs: MatchedJob[]): JobForList[] => {
-    return matchedJobs.map(job => ({
-      id: job.id,
-      job_url: job.url || '#',
-      job_title: job.title || 'Untitled Position',
+    return matchedJobs.map((job, index) => ({
+      id: job.id || `job-${index}`,
+      job_url: job.job_url || job.url || '#',
+      job_title: job.job_title || job.title || 'Untitled Position',
       company: job.company,
       location: job.location || 'Location not specified',
       job_description: job.description || 'No job description available.',

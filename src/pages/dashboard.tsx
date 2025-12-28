@@ -7,7 +7,6 @@ import FileInput from "@/components/Fileupload";
 import { Session } from "inspector/promises";
 import { useRouter } from "next/router";
 import { checkAuthStatus, getCurrentSession, getCurrentUserWithProfile } from "@/lib/getSession";
-// import { checkDataCv } from "@/lib/checkDataCv";
 import { supabase } from "@/lib/supabaseClient";
 import { fetchJobsData } from "@/utils/fetchJobs";
 import CVAnalysisComponent from "@/components/CVAnalysisComponent";
@@ -24,32 +23,29 @@ export default function Dashboard() {
   const [userId, setUserId] = useState<any>(null);
   const [cvData, setCvData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshKey, setRefreshKey] = useState(0); // TAMBAHAN: Key untuk force refresh
   const router = useRouter();
 
   // Effect 1: Cek auth dan ambil session/user
   useEffect(() => {
     const initializeAuth = async () => {
       try {
-        // Cek auth status dulu
         const authStatus = await checkAuthStatus();
         if (!authStatus.isAuthenticated) {
           router.push("/login");
           return;
         }
 
-        // Ambil session dan user secara paralel
         const [sessionData, userData] = await Promise.all([
           getCurrentSession(),
           getCurrentUserWithProfile()
         ]);
 
-        // setSession(sessionData);
         setUser(userData);
         setUserId(userData?.id);
 
         console.log("userData :", userData?.id);
 
-        // PERBAIKAN: Query yang benar untuk mengambil CV berdasarkan user_id
         const { data, error } = await supabase
           .from('user_cvs')
           .select('*')
@@ -77,8 +73,6 @@ export default function Dashboard() {
     initializeAuth();
   }, [router]);
 
-
-
   const fetchAllJobs = async () => {
     try {
       const response = await fetch('/api/jobs')
@@ -86,7 +80,6 @@ export default function Dashboard() {
 
       if (result.success) {
         console.log("ini result", result.data)
-        // result.data berisi semua jobs sekaligus
         console.log(`Total jobs: ${result.count}`)
         setJobsIndo(result.data)
         return result.data
@@ -98,28 +91,32 @@ export default function Dashboard() {
     }
   };
 
-
-
-
   useEffect(() => {
-    // loadJobs(1);
     fetchAllJobs();
   }, []);
 
-
   useEffect(() => {
-    console.log("🔍 User data updated:", user);
-    console.log("🔍 Session data:", session);
-    console.log("🔍 CV data:", cvData);
+    console.log("📌 User data updated:", user);
+    console.log("📌 Session data:", session);
+    console.log("📌 CV data:", cvData);
   }, [user, session, cvData]);
 
+  // PERBAIKAN 1: Handler untuk update CV data setelah upload berhasil
+  const handleCvUploadSuccess = (newCvData: any) => {
+    console.log("✅ CV Upload Success - Updating state:", newCvData);
+    setCvData(newCvData);
+    setRefreshKey(prev => prev + 1); // Force refresh CVAnalysisComponent
+  };
 
   return (
     <div className="w-[100%] min-h-screen bg-gray-50 box-border">
-      {/* <Header user={user} /> */}
       <Layout>
-        <div className="mt-8  ">
-          <FileInput userId={user?.id} file_name={cvData?.file_name} onSuccess={(newCvData) => setCvData(newCvData)} />
+        <div className="mt-8">
+          <FileInput 
+            userId={user?.id} 
+            file_name={cvData?.file_name} 
+            onSuccess={handleCvUploadSuccess}  // PERBAIKAN: Gunakan handler baru
+          />
           {
             cvData === null ? (
               <div className="text-center">
@@ -129,15 +126,13 @@ export default function Dashboard() {
               </div>
             ) : (
               <>
-                <CVAnalysisComponent />
+                <CVAnalysisComponent key={refreshKey} />  {/* PERBAIKAN: Tambahkan key untuk force refresh */}
                 <MatchedJobsPage dataJobApi={jobs} user_id={user?.id} dataJobsIndo={jobsIndo} />
               </>
             )
           }
         </div>
-
       </Layout>
-
     </div>
   );
 }
