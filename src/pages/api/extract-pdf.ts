@@ -2,6 +2,16 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { PDFParse } from 'pdf-parse';
 
+export const config = {
+    api: {
+        externalResolver: true,
+    },
+};
+
+// Force dynamic untuk mencegah static optimization
+export const dynamic = 'force-dynamic';
+
+
 interface UserCV {
     user_id: string;
     file_name: string;
