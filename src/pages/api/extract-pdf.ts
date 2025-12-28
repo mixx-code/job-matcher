@@ -1,58 +1,15 @@
-// src\pages\api\extract-pdf.ts
+// src/pages/api/extract-pdf.ts
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { PDFParse } from 'pdf-parse';
 
 export const config = {
     api: {
-    externalResolver: true,
-  },
+        bodyParser: {
+            sizeLimit: '10mb',
+        },
+    },
 };
 
-// Force dynamic untuk mencegah static optimization
 export const dynamic = 'force-dynamic';
-
-
-interface UserCV {
-    user_id: string;
-    file_name: string;
-    file_url: string;
-    file_size: number;
-    file_type: string;
-    storage_path: string;
-    created_at: string;
-    updated_at: string;
-    extracted_text: string | null;
-    extraction_metadata: Record<string, unknown> | null;
-}
-
-interface PDFParseResult {
-    text: string;
-    numpages?: number;
-    numrender?: number;
-    info?: Record<string, unknown>;
-    metadata?: Record<string, unknown>;
-    version?: string;
-}
-
-interface TextContentItem {
-    str: string;
-    dir?: string;
-    width?: number;
-    height?: number;
-    transform?: number[];
-    fontName?: string;
-}
-
-interface TextContent {
-    items: TextContentItem[];
-}
-
-interface PageData {
-    getTextContent: (options?: {
-        normalizeWhitespace?: boolean;
-        disableCombineTextItems?: boolean;
-    }) => Promise<TextContent>;
-}
 
 interface ParseResponse {
     success: boolean;
@@ -66,34 +23,59 @@ interface ParseResponse {
     details?: string;
 }
 
-async function parseCVFromUrl(fileUrl: string, ext: string): Promise<string> {
-    if (ext === ".pdf") {
-        // Download file dari URL
-        const response = await fetch(fileUrl);
-        if (!response.ok) {
-            throw new Error(`Failed to download file: ${response.statusText}`);
-        }
+async function parsePDFFromUrl(fileUrl: string): Promise<string> {
+    // Import pdfjs-dist dengan path yang benar
+    const pdfjsLib = await import('pdfjs-dist');
 
-        const arrayBuffer = await response.arrayBuffer();
-        const buffer = Buffer.from(arrayBuffer);
-
-        // Parse PDF - gunakan PDFParse dengan hanya data buffer
-        // Karena pagerender tidak ada di LoadParameters, kita gunakan default parsing
-        const parser = new PDFParse({ data: buffer });
-        
-        const result = await parser.getText() as PDFParseResult;
-        
-        console.log(`PDF parse result:`, {
-            hasText: !!result.text,
-            textLength: result.text?.length || 0,
-            numpages: result.numpages || 'unknown',
-            hasInfo: !!result.info
-        });
-
-        return result.text || '';
+    // Set worker dari CDN atau local
+    if (typeof window === 'undefined') {
+        // Server-side: disable worker untuk serverless
+        pdfjsLib.GlobalWorkerOptions.workerSrc = '';
     }
 
-    throw new Error("Unsupported file format. Only PDF is supported.");
+    // Download file
+    const response = await fetch(fileUrl);
+    if (!response.ok) {
+        throw new Error(`Failed to download file: ${response.statusText}`);
+    }
+
+    const arrayBuffer = await response.arrayBuffer();
+    const uint8Array = new Uint8Array(arrayBuffer);
+
+    // Load PDF dengan opsi yang kompatibel dengan serverless
+    const loadingTask = pdfjsLib.getDocument({
+        data: uint8Array,
+        useSystemFonts: true,
+        isEvalSupported: false,
+        useWorkerFetch: false,
+    });
+
+    const pdf = await loadingTask.promise;
+    const numPages = pdf.numPages;
+
+    console.log(`PDF has ${numPages} pages`);
+
+    let fullText = '';
+
+    // Extract text dari setiap halaman
+    for (let i = 1; i <= numPages; i++) {
+        const page = await pdf.getPage(i);
+        const textContent = await page.getTextContent();
+
+        const pageText = textContent.items
+            .map((item) => {
+                // Type guard untuk TextItem
+                if ('str' in item) {
+                    return item.str;
+                }
+                return '';
+            })
+            .join(' ');
+
+        fullText += pageText + '\n\n';
+    }
+
+    return fullText;
 }
 
 export default async function handler(
@@ -129,9 +111,7 @@ export default async function handler(
 
         // Cek ekstensi file
         const urlPath = new URL(fileUrl).pathname.toLowerCase();
-        const ext = urlPath.endsWith('.pdf') ? '.pdf' : null;
-
-        if (!ext) {
+        if (!urlPath.endsWith('.pdf')) {
             return res.status(400).json({
                 success: false,
                 error: 'Only PDF files are supported'
@@ -140,8 +120,8 @@ export default async function handler(
 
         console.log(`Processing PDF from URL: ${fileUrl}`);
 
-        // Parse CV dari URL
-        const text = await parseCVFromUrl(fileUrl, ext);
+        // Parse PDF
+        const text = await parsePDFFromUrl(fileUrl);
 
         if (!text || text.trim().length === 0) {
             throw new Error('No text extracted from PDF');
@@ -149,7 +129,7 @@ export default async function handler(
 
         console.log(`Extracted text length: ${text.length} characters`);
 
-        // Basic cleaning dengan lebih banyak normalisasi
+        // Clean text
         const cleanedText = text
             .replace(/\r\n/g, '\n')
             .replace(/\r/g, '\n')
@@ -163,7 +143,7 @@ export default async function handler(
         res.status(200).json({
             success: true,
             text: cleanedText,
-            fileType: ext,
+            fileType: '.pdf',
             stats: {
                 originalLength: text.length,
                 cleanedLength: cleanedText.length
