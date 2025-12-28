@@ -77,6 +77,7 @@ export default function Dashboard() {
     try {
       const response = await fetch('/api/jobs')
       const result = await response.json()
+      console.log("📋 Jobs data dashboard:", result.data)
 
       if (result.success) {
         console.log("ini result", result.data)

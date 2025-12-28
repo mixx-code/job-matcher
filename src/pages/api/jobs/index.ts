@@ -31,19 +31,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // Batasi jumlah yang diambil maksimal 50 atau total data (ambil yang lebih kecil)
-    const limit = Math.min(50, totalCount)
+    const limit = Math.min(100, totalCount)
     
     // Method 1: Menggunakan RANDOM() jika didukung
     try {
       const { data, error } = await supabase
         .from('jobs')
         .select('*')
-        .order('random()')
-        .limit(limit)
+      // .order('random()')
+      // .limit(limit)
 
       if (error) {
         throw error // Jika error, lanjut ke method 2
       }
+
+      console.log('Random data:', data)
 
       return res.status(200).json({
         success: true,
@@ -69,6 +71,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         [...data]
           .sort(() => Math.random() - 0.5)
           .slice(0, limit) : []
+
+      console.log('Shuffled data:', shuffledData)
 
       return res.status(200).json({
         success: true,

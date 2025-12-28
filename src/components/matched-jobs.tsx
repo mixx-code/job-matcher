@@ -55,6 +55,8 @@ const MatchedJobsPage: React.FC<MatchedJobsPageProps> = ({ dataJobApi, dataJobsI
   const [dataRekomendasiJobs, setDataRekomendasiJobs] = useState<MatchedJob[]>([]);
   const [listJobs, setListJobs] = useState<MatchedJob[]>([]);
 
+  console.log("dataJobsIndo: ", dataJobsIndo);
+
   console.log("dataRekomendasiJobs: ", dataRekomendasiJobs);
   console.log("user_id: ", user_id);
   console.log("dataJobApi: ", dataJobApi);
